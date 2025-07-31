@@ -1,65 +1,24 @@
-const Guest = require('../models/Guest');
+import GuestProfile from '../models/profiles/GuestProfile.js';
 
-// Create a new guest profile
-exports.createGuest = async (req, res) => {
+// Get basic guest profile by userId
+export const getGuestById = async (req, res) => {
   try {
-    const guest = new Guest(req.body);
-    await guest.save();
-    res.status(201).json(guest);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
+    const userId = req.params.id;
+    console.log("Looking for GuestProfile with userId:", userId);
 
-// Get all guests
-exports.getAllGuests = async (req, res) => {
-  try {
-    const guests = await Guest.find();
-    res.json(guests);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// Get single guest by ID
-exports.getGuestById = async (req, res) => {
-  try {
-    const guest = await Guest.findById(req.params.id);
-    if (!guest) {
-      return res.status(404).json({ error: 'Guest not found' });
+    if (!userId || userId.length !== 24) {
+      return res.status(400).json({ error: "Invalid user ID format" });
     }
-    res.json(guest);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
 
-// Update guest profile
-exports.updateGuest = async (req, res) => {
-  try {
-    const guest = await Guest.findByIdAndUpdate(
-      req.params.id,
-      req.body,
-      { new: true, runValidators: true }
-    );
-    if (!guest) {
-      return res.status(404).json({ error: 'Guest not found' });
-    }
-    res.json(guest);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
+    const guestProfile = await GuestProfile.findOne({ userId });
 
-// Delete guest profile
-exports.deleteGuest = async (req, res) => {
-  try {
-    const guest = await Guest.findByIdAndDelete(req.params.id);
-    if (!guest) {
-      return res.status(404).json({ error: 'Guest not found' });
+    if (!guestProfile) {
+      return res.status(404).json({ error: "Guest profile not found" });
     }
-    res.json({ message: 'Guest deleted successfully' });
+
+    res.json(guestProfile);
   } catch (error) {
-    res.status(500).json({ error: error.message });
+    console.error("Error fetching guest profile:", error);
+    res.status(500).json({ error: "Internal server error", details: error.message });
   }
 };

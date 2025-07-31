@@ -16,6 +16,7 @@ import { connectDB, dbHealthCheck } from "./config/database.js";
 import authRoutes from "./routes/auth.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import staffRoutes from "./routes/staff.js";
+import guestRoutes from "./routes/guestRoutes.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -90,6 +91,7 @@ app.get("/health", async (req, res) => {
 app.use("/api/auth", authRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/staff", staffRoutes);
+app.use("/api/guests", guestRoutes);
 
 app.use("/api", (req, res) => {
   console.warn(`🔍 Unknown API route: ${req.originalUrl}`);

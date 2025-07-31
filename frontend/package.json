@@ -16,6 +16,8 @@
     "crypto": "^1.0.1",
     "hotel_management": "file:..",
     "lucide-react": "^0.534.0",
+    "multer": "^2.0.2",
+    "openai": "^5.10.2",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "react-hook-form": "^7.60.0",

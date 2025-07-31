@@ -1,12 +1,11 @@
-const express = require('express');
+import express from 'express';
+import {
+  getGuestById
+} from '../controllers/guestController.js';
+
 const router = express.Router();
-const guestController = require('../controllers/guestController');
 
 // Guest profile routes
-router.post('/', guestController.createGuest);
-router.get('/', guestController.getAllGuests);
-router.get('/:id', guestController.getGuestById);
-router.put('/:id', guestController.updateGuest);
-router.delete('/:id', guestController.deleteGuest);
+router.get('/:id', getGuestById);
 
-module.exports = router;
+export default router;

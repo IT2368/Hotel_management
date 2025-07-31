@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import api from '../../services/api';
+import { getGuestById } from '../../services/guestService';
+
 
 export default function GuestDetails() {
   const { id } = useParams();
@@ -9,10 +10,11 @@ export default function GuestDetails() {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    api.getGuestById(id)
-      .then(res => setGuest(res.data || res))
-      .catch(err => setError(err.message))
-      .finally(() => setLoading(false));
+    getGuestById(id)
+    .then(res => setGuest(res))
+    .catch(err => setError(err.message))
+    .finally(() => setLoading(false));
+
   }, [id]);
 
   if (loading) return <div>Loading guest details...</div>;

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const guestSchema = new mongoose.Schema({
   firstName: {
@@ -27,7 +27,7 @@ const guestSchema = new mongoose.Schema({
   },
   idProof: {
     type: {
-      type: String, // 'passport', 'driver-license', etc.
+      type: String, // e.g. 'passport', 'driver-license'
       required: true
     },
     number: {
@@ -54,4 +54,6 @@ const guestSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model('Guest', guestSchema);
+const Guest = mongoose.model('Guest', guestSchema);
+
+export default Guest;
