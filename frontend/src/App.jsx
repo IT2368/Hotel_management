@@ -19,10 +19,16 @@ import StaffDashboardPage from './pages/staff/StaffDashboardPage.jsx';
 import DefaultAdminLayout from './layout/admin/DefaultAdminLayout.jsx';
 // import ManagerDashboardPage from './pages/ManagerDashboardPage.jsx';
 // import UserManagementPage from './pages/UserManagementPage.jsx';
+import GuestList from './pages/guest/GuestList.jsx';
+import GuestForm from './pages/guest/GuestForm.jsx';
+import GuestDetails from './pages/guest/GuestDetails.jsx';
+import EditProfile from './pages/guest/EditProfile.jsx';
+import AIChatPage from './pages/AIChatPage.jsx';
 
-const App = () => {
+function App() {
+  // Just return your routes/components, NO <BrowserRouter> here!
   return (
-    <BrowserRouter>
+    <>
       <AuthProvider>
         <Routes>
           {/* 🔒 Public Routes */}
@@ -75,6 +81,11 @@ const App = () => {
               </RedirectIfAuthenticated>
             }
           />
+                  {/* 👥 Guest Routes */}
+        <Route path="/guests" element={<GuestList />} />
+        <Route path="/guests/add" element={<GuestForm />} />
+        <Route path="/guests/edit/:id" element={<EditProfile />} />
+        <Route path="/guests/:id" element={<GuestDetails />} />
 
           {/* 🔐 Protected Routes */}
           <Route
@@ -148,12 +159,12 @@ const App = () => {
           */}
 
           {/* 🚧 Error Routes */}
-          <Route path="/unauthorized" element={<UnauthorizedPage />} />
-          <Route path="*" element={<NotFoundPage />} />
-        </Routes>
-      </AuthProvider>
-    </BrowserRouter>
+        <Route path="/unauthorized" element={<UnauthorizedPage />} />
+        <Route path="/ai-chat" element={<AIChatPage />} />
+        <Route path="*" element={<NotFoundPage />} />
+      </Routes>
+    </AuthProvider>
+    </>
   );
-};
-
+}
 export default App;

@@ -16,5 +16,10 @@
   "keywords": [],
   "devDependencies": {
     "concurrently": "^9.2.0"
+  },
+  "dependencies": {
+    "dotenv": "^17.2.1",
+    "multer": "^2.0.2",
+    "openai": "^5.10.2"
   }
 }
