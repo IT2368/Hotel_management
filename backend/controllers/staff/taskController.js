@@ -170,6 +170,7 @@ export const updateTask = async (req, res) => {
     const statusChanged = updateData.status && updateData.status !== task.status;
     const wasCompleted = task.status === "completed";
     const willBeCompleted = updateData.status === "completed";
+    const isHandoff = updateData.status === "handoff_pending";
 
     // Update task
     Object.assign(task, updateData);
@@ -181,6 +182,16 @@ export const updateTask = async (req, res) => {
         Math.round((task.completedAt - task.createdAt) / (1000 * 60)); // minutes
     }
 
+    // Handle handoff logic
+    if (isHandoff && updateData.handoffDepartment) {
+      task.handoffDepartment = updateData.handoffDepartment;
+      task.handoffReason = updateData.handoffReason || "Task ready for next department";
+      task.handoffFrom = req.user.userId;
+      
+      // Create notification for handoff
+      await createTaskNotification(task, "task_handoff");
+    }
+
     await task.save();
 
     // Create notifications for status changes
@@ -190,7 +201,9 @@ export const updateTask = async (req, res) => {
 
     const updatedTask = await StaffTask.findById(taskId)
       .populate("assignedTo", "name email")
-      .populate("assignedBy", "name email");
+      .populate("assignedBy", "name email")
+      .populate("handoffTo", "name email")
+      .populate("handoffFrom", "name email");
 
     res.json(formatResponse(true, "Task updated successfully", updatedTask));
   } catch (error) {
@@ -240,6 +253,95 @@ export const deleteTask = async (req, res) => {
   } catch (error) {
     logger.error("Error deleting task:", error);
     res.status(500).json(formatResponse(false, "Failed to delete task", null, error.message));
+  }
+};
+
+// Get public staff updates for guests
+export const getPublicStaffUpdates = async (req, res) => {
+  try {
+    const { department, roomNumber, limit = 20 } = req.query;
+    const filter = {};
+
+    // Apply filters
+    if (department) filter.department = department;
+    if (roomNumber) filter.roomNumber = roomNumber;
+
+    // Show tasks that are in process, completed, or handoff pending
+    filter.status = { $in: ["process", "completed", "handoff_pending"] };
+
+    const tasks = await StaffTask.find(filter)
+      .populate("assignedTo", "name")
+      .populate("assignedBy", "name")
+      .populate("handoffFrom", "name")
+      .sort({ updatedAt: -1 })
+      .limit(parseInt(limit))
+      .select("title description status department roomNumber location category updatedAt completedAt assignedTo handoffDepartment handoffReason handoffFrom");
+
+    // Format the response for public viewing
+    const publicUpdates = tasks.map(task => ({
+      id: task._id,
+      title: task.title,
+      description: task.description,
+      status: task.status,
+      department: task.department,
+      roomNumber: task.roomNumber,
+      location: task.location,
+      category: task.category,
+      assignedTo: task.assignedTo?.name || "Staff Member",
+      updatedAt: task.updatedAt,
+      completedAt: task.completedAt,
+      isCompleted: task.status === "completed",
+      handoffDepartment: task.handoffDepartment,
+      handoffReason: task.handoffReason,
+      handoffFrom: task.handoffFrom?.name
+    }));
+
+    res.json(formatResponse(true, "Public staff updates retrieved successfully", {
+      updates: publicUpdates,
+      total: publicUpdates.length
+    }));
+  } catch (error) {
+    logger.error("Error getting public staff updates:", error);
+    res.status(500).json(formatResponse(false, "Failed to get public staff updates", null, error.message));
+  }
+};
+
+// Accept task handoff
+export const acceptHandoff = async (req, res) => {
+  try {
+    const { taskId } = req.params;
+    const { userId } = req.user;
+
+    const task = await StaffTask.findById(taskId);
+    if (!task) {
+      return res.status(404).json(formatResponse(false, "Task not found"));
+    }
+
+    if (task.status !== "handoff_pending") {
+      return res.status(400).json(formatResponse(false, "Task is not pending handoff"));
+    }
+
+    // Update task to accepted handoff
+    task.status = "handoff_accepted";
+    task.assignedTo = userId;
+    task.department = task.handoffDepartment;
+    task.handoffTo = userId;
+
+    await task.save();
+
+    // Create notification for handoff acceptance
+    await createTaskNotification(task, "handoff_accepted");
+
+    const updatedTask = await StaffTask.findById(taskId)
+      .populate("assignedTo", "name email")
+      .populate("assignedBy", "name email")
+      .populate("handoffTo", "name email")
+      .populate("handoffFrom", "name email");
+
+    res.json(formatResponse(true, "Handoff accepted successfully", updatedTask));
+  } catch (error) {
+    logger.error("Error accepting handoff:", error);
+    res.status(500).json(formatResponse(false, "Failed to accept handoff", null, error.message));
   }
 };
 
@@ -362,6 +464,10 @@ const getNotificationMessage = (type, task) => {
       return `Task "${task.title}" has been updated. Current status: ${task.status}.`;
     case "task_completed":
       return `Task "${task.title}" has been marked as completed.`;
+    case "task_handoff":
+      return `Task "${task.title}" has been handed off to ${task.handoffDepartment} department`;
+    case "handoff_accepted":
+      return `You have accepted the handoff for task: ${task.title}`;
     default:
       return `Task "${task.title}" notification.`;
   }

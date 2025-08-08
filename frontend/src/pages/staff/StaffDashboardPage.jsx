@@ -1,10 +1,11 @@
 import { useContext, useState, useEffect } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import useAuth from "../../hooks/useAuth";
+import TaskManager from "../../components/staff/TaskManager.jsx";
 
 // Simple icon components as fallbacks
 const Bell = () => <span className="text-xl">🔔</span>;
-const Clock = () => <span className="text-xl">⏰</span>;
+const Clock = () => <span className="text-xl">⏰</span>;``
 const CheckCircle = () => <span className="text-xl">✅</span>;
 const AlertTriangle = () => <span className="text-xl">⚠️</span>;
 const Users = () => <span className="text-xl">👥</span>;
@@ -40,8 +41,8 @@ export default function StaffDashboardPage() {
       icon: "👔",
       description: "Guest services, concierge, and customer support"
     },
-    housekeeping: {
-      name: "Housekeeping",
+        cleaning: {
+      name: "Cleaning",
       color: "purple",
       icon: "🧹",
       description: "Room cleaning, laundry, and facility maintenance"
@@ -97,7 +98,7 @@ export default function StaffDashboardPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-800">
-                {currentDept.name} Dashboard
+                Valdor Hotel - {currentDept.name} Dashboard
               </h1>
               <p className="text-gray-600 text-sm">{currentDept.description}</p>
             </div>
@@ -296,34 +297,12 @@ function TasksTab({ user, department }) {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">My Tasks</h2>
-        <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200">
-          + New Task
-        </button>
+                <p className="text-gray-600 text-sm">View and update your assigned tasks</p>
+
       </div>
       
       <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b">
-          <div className="flex space-x-4">
-            <button className="px-4 py-2 bg-indigo-100 text-indigo-700 rounded-lg font-medium">
-              All Tasks
-            </button>
-            <button className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
-              Pending
-            </button>
-            <button className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
-              In Progress
-            </button>
-            <button className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg">
-              Completed
-            </button>
-          </div>
-        </div>
-        
-        <div className="p-6">
-          <p className="text-gray-600 text-center py-8">
-            Task list will be implemented here with filtering and management capabilities.
-          </p>
-        </div>
+        <TaskManager department={department} user={user} />
       </div>
     </div>
   );

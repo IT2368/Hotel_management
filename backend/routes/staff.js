@@ -20,6 +20,7 @@ router.post("/tasks", taskController.createTask);
 router.put("/tasks/:taskId", taskController.updateTask);
 router.delete("/tasks/:taskId", taskController.deleteTask);
 router.post("/tasks/:taskId/notes", taskController.addTaskNote);
+router.post("/tasks/:taskId/accept-handoff", taskController.acceptHandoff);
 router.get("/tasks/stats", taskController.getTaskStats);
 
 // Notification Routes

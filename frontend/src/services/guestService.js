@@ -25,6 +25,12 @@ export const updateGuest = async (guestId, guestData) => {
   return response.data;
 };
 
+// Get public staff updates
+export const getPublicStaffUpdates = async (params = {}) => {
+  const response = await api.get('/guests/staff-updates/public', { params });
+  return response.data;
+};
+
 // Delete guest
 export const deleteGuest = async (guestId) => {
   const response = await api.delete(`/guests/${guestId}`);

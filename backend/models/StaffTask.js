@@ -7,7 +7,7 @@ const staffTaskSchema = new mongoose.Schema(
     description: { type: String, required: true },
     department: {
       type: String,
-      enum: ["maintenance", "kitchen", "service", "housekeeping"],
+      enum: ["maintenance", "kitchen", "service", "cleaning"],
       required: true,
     },
     priority: {
@@ -17,11 +17,15 @@ const staffTaskSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "assigned", "in_progress", "completed", "cancelled"],
+      enum: ["pending", "process", "completed", "handoff_pending", "handoff_accepted"],
       default: "pending",
     },
     assignedTo: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
     assignedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
+    handoffTo: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // For task handoffs
+    handoffFrom: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Who handed off the task
+    handoffDepartment: { type: String }, // Department to handoff to
+    handoffReason: { type: String }, // Reason for handoff
     dueDate: { type: Date },
     completedAt: { type: Date },
     location: {
@@ -39,7 +43,7 @@ const staffTaskSchema = new mongoose.Schema(
         "food_preparation", "cooking", "cleaning", "inventory", "equipment",
         // Service categories
         "guest_request", "room_service", "concierge", "transportation", "event",
-        // Housekeeping categories
+        // Cleaning categories
         "cleaning", "laundry", "restocking", "inspection", "deep_cleaning"
       ],
       required: true,

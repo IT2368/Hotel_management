@@ -1,13 +1,12 @@
 import { useState, useEffect } from "react";
-import { Plus, Filter, Search, Clock, AlertTriangle, CheckCircle, XCircle, Edit, Trash2 } from "lucide-react";
+import { Search, Clock, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 
 export default function TaskManager({ department, user }) {
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [showCreateModal, setShowCreateModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
+
+
   const [filters, setFilters] = useState({
     status: "all",
     priority: "all",
@@ -19,10 +18,10 @@ export default function TaskManager({ department, user }) {
   const statusOptions = [
     { value: "all", label: "All Status" },
     { value: "pending", label: "Pending" },
-    { value: "assigned", label: "Assigned" },
-    { value: "in_progress", label: "In Progress" },
+    { value: "process", label: "Process" },
     { value: "completed", label: "Completed" },
-    { value: "cancelled", label: "Cancelled" }
+    { value: "handoff_pending", label: "Handoff Pending" },
+    { value: "handoff_accepted", label: "Handoff Accepted" }
   ];
 
   const priorityOptions = [
@@ -47,14 +46,24 @@ export default function TaskManager({ department, user }) {
     try {
       setLoading(true);
       // API call to fetch tasks
-      // const response = await api.get(`/staff/tasks?department=${department}`);
-      // setTasks(response.data.tasks);
+      const response = await fetch(`/api/staff/tasks?department=${department}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
-      // Mock data for now
-      setTasks(getMockTasks(department));
+      if (response.ok) {
+        const data = await response.json();
+        setTasks(data.data.tasks || []);
+      } else {
+        console.error("Failed to fetch tasks");
+        setTasks([]);
+      }
       setLoading(false);
     } catch (error) {
       console.error("Error fetching tasks:", error);
+      setTasks([]);
       setLoading(false);
     }
   };
@@ -94,19 +103,58 @@ export default function TaskManager({ department, user }) {
     setFilteredTasks(filtered);
   };
 
-  const handleStatusChange = async (taskId, newStatus) => {
+  const handleStatusChange = async (taskId, newStatus, handoffData = null) => {
     try {
+      // Prepare update data
+      const updateData = { status: newStatus };
+      if (handoffData) {
+        updateData.handoffDepartment = handoffData.department;
+        updateData.handoffReason = handoffData.reason;
+      }
+
       // API call to update task status
-      // await api.put(`/staff/tasks/${taskId}`, { status: newStatus });
+      const response = await fetch(`/api/staff/tasks/${taskId}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(updateData)
+      });
       
-      // Update local state
-      setTasks(prevTasks =>
-        prevTasks.map(task =>
-          task.id === taskId ? { ...task, status: newStatus } : task
-        )
-      );
+      if (response.ok) {
+        // Update local state
+        setTasks(prevTasks =>
+          prevTasks.map(task =>
+            task._id === taskId ? { ...task, status: newStatus, ...handoffData } : task
+          )
+        );
+      } else {
+        console.error("Failed to update task status");
+      }
     } catch (error) {
       console.error("Error updating task status:", error);
+    }
+  };
+
+  const handleAcceptHandoff = async (taskId) => {
+    try {
+      const response = await fetch(`/api/staff/tasks/${taskId}/accept-handoff`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        // Refresh tasks to get updated data
+        fetchTasks();
+      } else {
+        console.error("Failed to accept handoff");
+      }
+    } catch (error) {
+      console.error("Error accepting handoff:", error);
     }
   };
 
@@ -114,12 +162,14 @@ export default function TaskManager({ department, user }) {
     switch (status) {
       case "pending":
         return <Clock className="h-4 w-4 text-yellow-500" />;
-      case "in_progress":
-        return <AlertTriangle className="h-4 w-4 text-blue-500" />;
+      case "process":
+        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
       case "completed":
         return <CheckCircle className="h-4 w-4 text-green-500" />;
-      case "cancelled":
-        return <XCircle className="h-4 w-4 text-red-500" />;
+      case "handoff_pending":
+        return <AlertTriangle className="h-4 w-4 text-purple-500" />;
+      case "handoff_accepted":
+        return <CheckCircle className="h-4 w-4 text-blue-500" />;
       default:
         return <Clock className="h-4 w-4 text-gray-500" />;
     }
@@ -155,16 +205,9 @@ export default function TaskManager({ department, user }) {
         <div>
           <h2 className="text-xl font-semibold text-gray-800">Task Management</h2>
           <p className="text-gray-600 text-sm">
-            Manage and track all tasks in the {department} department
+            View and update tasks in the {department} department
           </p>
         </div>
-        <button
-          onClick={() => setShowCreateModal(true)}
-          className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition duration-200"
-        >
-          <Plus className="h-4 w-4" />
-          <span>Create Task</span>
-        </button>
       </div>
 
       {/* Filters */}
@@ -248,13 +291,10 @@ export default function TaskManager({ department, user }) {
           ) : (
             filteredTasks.map(task => (
               <TaskCard
-                key={task.id}
+                key={task._id}
                 task={task}
                 onStatusChange={handleStatusChange}
-                onEdit={() => {
-                  setSelectedTask(task);
-                  setShowEditModal(true);
-                }}
+                onAcceptHandoff={handleAcceptHandoff}
                 getStatusIcon={getStatusIcon}
                 getPriorityColor={getPriorityColor}
               />
@@ -263,44 +303,30 @@ export default function TaskManager({ department, user }) {
         </div>
       </div>
 
-      {/* Create Task Modal */}
-      {showCreateModal && (
-        <TaskModal
-          mode="create"
-          department={department}
-          onClose={() => setShowCreateModal(false)}
-          onSave={(taskData) => {
-            // Handle task creation
-            console.log("Creating task:", taskData);
-            setShowCreateModal(false);
-          }}
-        />
-      )}
 
-      {/* Edit Task Modal */}
-      {showEditModal && selectedTask && (
-        <TaskModal
-          mode="edit"
-          task={selectedTask}
-          department={department}
-          onClose={() => {
-            setShowEditModal(false);
-            setSelectedTask(null);
-          }}
-          onSave={(taskData) => {
-            // Handle task update
-            console.log("Updating task:", taskData);
-            setShowEditModal(false);
-            setSelectedTask(null);
-          }}
-        />
-      )}
     </div>
   );
 }
 
 // Task Card Component
-function TaskCard({ task, onStatusChange, onEdit, getStatusIcon, getPriorityColor }) {
+function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcceptHandoff }) {
+  const [showHandoffModal, setShowHandoffModal] = useState(false);
+  const [handoffData, setHandoffData] = useState({ department: "", reason: "" });
+
+  const handleStatusChange = (newStatus) => {
+    if (newStatus === "handoff_pending") {
+      setShowHandoffModal(true);
+    } else {
+      onStatusChange(task._id, newStatus);
+    }
+  };
+
+  const handleHandoffSubmit = () => {
+    onStatusChange(task._id, "handoff_pending", handoffData);
+    setShowHandoffModal(false);
+    setHandoffData({ department: "", reason: "" });
+  };
+
   return (
     <div className="p-6 hover:bg-gray-50 transition duration-200">
       <div className="flex items-start justify-between">
@@ -316,6 +342,11 @@ function TaskCard({ task, onStatusChange, onEdit, getStatusIcon, getPriorityColo
                 Urgent
               </span>
             )}
+            {task.handoffDepartment && (
+              <span className="px-2 py-1 text-xs font-medium bg-purple-100 text-purple-800 rounded-full">
+                Handoff to {task.handoffDepartment}
+              </span>
+            )}
           </div>
           
           <p className="text-gray-600 mb-3">{task.description}</p>
@@ -328,30 +359,96 @@ function TaskCard({ task, onStatusChange, onEdit, getStatusIcon, getPriorityColo
             {task.assignedTo && (
               <span>👤 {task.assignedTo.name}</span>
             )}
+            {task.handoffReason && (
+              <span>🔄 {task.handoffReason}</span>
+            )}
           </div>
         </div>
 
         <div className="flex items-center space-x-2">
+          {task.status === "handoff_pending" && task.handoffDepartment && (
+            <button
+              onClick={() => onAcceptHandoff(task._id)}
+              className="px-3 py-1 text-sm bg-purple-600 text-white rounded hover:bg-purple-700 transition duration-200"
+            >
+              Accept Handoff
+            </button>
+          )}
+          
           <select
             value={task.status}
-            onChange={(e) => onStatusChange(task.id, e.target.value)}
+            onChange={(e) => handleStatusChange(e.target.value)}
             className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           >
             <option value="pending">Pending</option>
-            <option value="assigned">Assigned</option>
-            <option value="in_progress">In Progress</option>
+            <option value="process">Process</option>
             <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
+            <option value="handoff_pending">Handoff Pending</option>
           </select>
           
-          <button
-            onClick={onEdit}
-            className="p-2 text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition duration-200"
-          >
-            <Edit className="h-4 w-4" />
-          </button>
+
         </div>
       </div>
+
+      {/* Handoff Modal */}
+      {showHandoffModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div className="p-6">
+              <h3 className="text-lg font-semibold mb-4">Handoff Task</h3>
+              
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Handoff to Department *
+                  </label>
+                  <select
+                    required
+                    value={handoffData.department}
+                    onChange={(e) => setHandoffData(prev => ({ ...prev, department: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  >
+                    <option value="">Select Department</option>
+                    <option value="service">Service</option>
+                    <option value="cleaning">Cleaning</option>
+                    <option value="maintenance">Maintenance</option>
+                    <option value="kitchen">Kitchen</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Reason for Handoff
+                  </label>
+                  <textarea
+                    value={handoffData.reason}
+                    onChange={(e) => setHandoffData(prev => ({ ...prev, reason: e.target.value }))}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    rows={3}
+                    placeholder="Explain why this task needs to be handed off..."
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end space-x-4 mt-6">
+                <button
+                  onClick={() => setShowHandoffModal(false)}
+                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-200"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleHandoffSubmit}
+                  disabled={!handoffData.department}
+                  className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition duration-200 disabled:opacity-50"
+                >
+                  Handoff Task
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -573,7 +670,7 @@ function getCategoryOptions(department) {
       { value: "transportation", label: "Transportation" },
       { value: "event", label: "Event" }
     ],
-    housekeeping: [
+    cleaning: [
       { value: "cleaning", label: "Cleaning" },
       { value: "laundry", label: "Laundry" },
       { value: "restocking", label: "Restocking" },
@@ -648,7 +745,7 @@ function getMockTasks(department) {
         createdAt: "2024-01-15T11:00:00Z"
       }
     ],
-    housekeeping: [
+    cleaning: [
       {
         id: 5,
         title: "Deep clean Room 102",

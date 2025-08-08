@@ -2,7 +2,7 @@
 
 ## Overview
 
-The Staff Management Module is a comprehensive system designed to handle all staff operations across four departments: **Maintenance**, **Kitchen**, **Service**, and **Housekeeping**. The system provides a unified platform for task management, notifications, and department-specific workflows.
+The Staff Management Module is a comprehensive system designed to handle all staff operations across four departments: **Maintenance**, **Kitchen**, **Service**, and **Cleaning**. The system provides a unified platform for task management, notifications, and department-specific workflows.
 
 ## Architecture
 
@@ -95,7 +95,7 @@ frontend/src/
 - **Priority-based filtering**: Urgent, High, Medium, Low
 - **Read/Unread status**: Track notification engagement
 - **Action required flags**: Highlight actionable items
-- **Department-specific targeting**: Send to specific departments
+- **Department-specific targeting**: Send to specific departments (Maintenance, Kitchen, Service, Cleaning)
 - **Real-time updates**: Instant notification delivery
 
 ### 3. Department-Specific Dashboards

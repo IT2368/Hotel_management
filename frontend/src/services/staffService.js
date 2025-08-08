@@ -138,6 +138,12 @@ export const staffService = {
   updateAvailability: async (availabilityData) => {
     const response = await api.put('/staff/schedule/availability', availabilityData);
     return response.data;
+  },
+
+  // Accept handoff
+  acceptHandoff: async (taskId) => {
+    const response = await api.post(`/staff/tasks/${taskId}/accept-handoff`);
+    return response.data;
   }
 };
 
@@ -165,7 +171,7 @@ export const taskCategories = {
     { value: "transportation", label: "Transportation" },
     { value: "event", label: "Event" }
   ],
-  housekeeping: [
+  cleaning: [
     { value: "cleaning", label: "Cleaning" },
     { value: "laundry", label: "Laundry" },
     { value: "restocking", label: "Restocking" },
@@ -177,10 +183,10 @@ export const taskCategories = {
 // Task status options
 export const taskStatusOptions = [
   { value: "pending", label: "Pending", color: "yellow" },
-  { value: "assigned", label: "Assigned", color: "blue" },
-  { value: "in_progress", label: "In Progress", color: "orange" },
+  { value: "process", label: "Process", color: "orange" },
   { value: "completed", label: "Completed", color: "green" },
-  { value: "cancelled", label: "Cancelled", color: "red" }
+  { value: "handoff_pending", label: "Handoff Pending", color: "purple" },
+  { value: "handoff_accepted", label: "Handoff Accepted", color: "blue" }
 ];
 
 // Priority options
@@ -232,8 +238,8 @@ export const departmentConfig = {
     icon: "👔",
     description: "Guest services, concierge, and customer support"
   },
-  housekeeping: {
-    name: "Housekeeping",
+  cleaning: {
+    name: "Cleaning",
     color: "purple",
     icon: "🧹",
     description: "Room cleaning, laundry, and facility maintenance"
@@ -268,10 +274,10 @@ export const staffUtils = {
   getStatusColor: (status) => {
     const statusMap = {
       pending: "yellow",
-      assigned: "blue",
-      in_progress: "orange",
+      process: "orange",
       completed: "green",
-      cancelled: "red"
+      handoff_pending: "purple",
+      handoff_accepted: "blue"
     };
     return statusMap[status] || "gray";
   },

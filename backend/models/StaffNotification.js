@@ -17,7 +17,7 @@ const staffNotificationSchema = new mongoose.Schema(
     },
     department: {
       type: String,
-      enum: ["maintenance", "kitchen", "service", "housekeeping", "all"],
+      enum: ["maintenance", "kitchen", "service", "cleaning", "all"],
       required: true,
     },
     recipients: [{

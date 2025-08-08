@@ -6,7 +6,7 @@ const staffProfileSchema = new mongoose.Schema(
     userId: { type: mongoose.Schema.Types.ObjectId, ref: "User", unique: true },
     department: {
       type: String,
-      enum: ["maintenance", "kitchen", "service", "housekeeping"],
+      enum: ["maintenance", "kitchen", "service", "cleaning"],
       required: true,
     },
     position: { type: String, required: true }, // e.g., "Senior Maintenance Technician", "Head Chef", "Concierge"
@@ -73,8 +73,8 @@ const staffProfileSchema = new mongoose.Schema(
         uniformSize: String,
         customerServiceRating: { type: Number, min: 1, max: 5 },
       },
-      // Housekeeping specific
-      housekeeping: {
+      // Cleaning specific
+      cleaning: {
         cleaningSpecialties: [String], // ["deep_cleaning", "laundry", "restocking"]
         assignedFloor: String,
         cleaningSupplies: [String],
