@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Search, Clock, AlertTriangle, CheckCircle, XCircle } from "lucide-react";
 
-export default function TaskManager({ department, user }) {
+export default function TaskManager({ department, user, viewMode = "mine" }) {
   const [tasks, setTasks] = useState([]);
   const [filteredTasks, setFilteredTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -36,7 +36,7 @@ export default function TaskManager({ department, user }) {
 
   useEffect(() => {
     fetchTasks();
-  }, [department]);
+  }, [department, viewMode]);
 
   useEffect(() => {
     applyFilters();
@@ -45,8 +45,12 @@ export default function TaskManager({ department, user }) {
   const fetchTasks = async () => {
     try {
       setLoading(true);
-      // API call to fetch tasks
-      const response = await fetch(`/api/staff/tasks?department=${department}`, {
+      // Choose endpoint based on view mode
+      const endpoint = viewMode === "mine"
+        ? "/api/staff/tasks/my"
+        : `/api/staff/tasks?department=${encodeURIComponent(department)}`;
+
+      const response = await fetch(endpoint, {
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`,
           'Content-Type': 'application/json'
@@ -55,7 +59,10 @@ export default function TaskManager({ department, user }) {
       
       if (response.ok) {
         const data = await response.json();
-        setTasks(data.data.tasks || []);
+        // /my returns { tasks: [...] } wrapped in data
+        // /tasks returns { tasks: [...] } wrapped in data
+        const received = data?.data?.tasks || [];
+        setTasks(received);
       } else {
         console.error("Failed to fetch tasks");
         setTasks([]);
@@ -86,7 +93,7 @@ export default function TaskManager({ department, user }) {
       filtered = filtered.filter(task => task.category === filters.category);
     }
 
-    // Apply assigned to filter
+    // Apply assigned to filter (only meaningful in department mode)
     if (filters.assignedTo !== "all") {
       filtered = filtered.filter(task => task.assignedTo?.id === filters.assignedTo);
     }
@@ -203,15 +210,15 @@ export default function TaskManager({ department, user }) {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h2 className="text-xl font-semibold text-gray-800">Task Management</h2>
-          <p className="text-gray-600 text-sm">
-            View and update tasks in the {department} department
+          <h2 className="text-xl font-semibold text-gray-800 dark:text-gray-100">Task Management</h2>
+          <p className="text-gray-600 dark:text-gray-300 text-sm">
+            {viewMode === "mine" ? "Tasks assigned to you" : `View and update tasks in the ${department} department`}
           </p>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
         <div className="flex flex-wrap gap-4 items-center">
           <div className="flex-1 min-w-64">
             <div className="relative">
@@ -221,7 +228,7 @@ export default function TaskManager({ department, user }) {
                 placeholder="Search tasks..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full pl-10 pr-4 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 placeholder-gray-400 dark:placeholder-gray-400 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
             </div>
           </div>
@@ -229,7 +236,7 @@ export default function TaskManager({ department, user }) {
           <select
             value={filters.status}
             onChange={(e) => setFilters(prev => ({ ...prev, status: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           >
             {statusOptions.map(option => (
               <option key={option.value} value={option.value}>
@@ -241,7 +248,7 @@ export default function TaskManager({ department, user }) {
           <select
             value={filters.priority}
             onChange={(e) => setFilters(prev => ({ ...prev, priority: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           >
             {priorityOptions.map(option => (
               <option key={option.value} value={option.value}>
@@ -253,7 +260,7 @@ export default function TaskManager({ department, user }) {
           <select
             value={filters.category}
             onChange={(e) => setFilters(prev => ({ ...prev, category: e.target.value }))}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           >
             {categoryOptions.map(option => (
               <option key={option.value} value={option.value}>
@@ -265,27 +272,27 @@ export default function TaskManager({ department, user }) {
       </div>
 
       {/* Task List */}
-      <div className="bg-white rounded-lg shadow">
-        <div className="p-6 border-b">
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <div className="p-6 border-b border-gray-200 dark:border-gray-700">
           <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
               Tasks ({filteredTasks.length})
             </h3>
-            <div className="text-sm text-gray-600">
+            <div className="text-sm text-gray-600 dark:text-gray-300">
               Showing {filteredTasks.length} of {tasks.length} tasks
             </div>
           </div>
         </div>
 
-        <div className="divide-y divide-gray-200">
+        <div className="divide-y divide-gray-200 dark:divide-gray-700">
           {filteredTasks.length === 0 ? (
             <div className="p-12 text-center">
               <div className="text-gray-400 text-6xl mb-4">📋</div>
-              <h3 className="text-lg font-medium text-gray-900 mb-2">No tasks found</h3>
-              <p className="text-gray-600">
+              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No tasks found</h3>
+              <p className="text-gray-600 dark:text-gray-300">
                 {searchTerm || Object.values(filters).some(f => f !== "all")
                   ? "Try adjusting your search or filters"
-                  : "No tasks have been created yet"}
+                  : viewMode === "mine" ? "No tasks assigned to you yet" : "No tasks have been created yet"}
               </p>
             </div>
           ) : (
@@ -328,12 +335,12 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
   };
 
   return (
-    <div className="p-6 hover:bg-gray-50 transition duration-200">
+    <div className="p-6 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-200">
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center space-x-3 mb-2">
             {getStatusIcon(task.status)}
-            <h4 className="text-lg font-medium text-gray-900">{task.title}</h4>
+            <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">{task.title}</h4>
             <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(task.priority)}`}>
               {task.priority}
             </span>
@@ -349,9 +356,9 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
             )}
           </div>
           
-          <p className="text-gray-600 mb-3">{task.description}</p>
+          <p className="text-gray-600 dark:text-gray-300 mb-3">{task.description}</p>
           
-          <div className="flex items-center space-x-6 text-sm text-gray-500">
+          <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400">
             <span>📍 {task.location}</span>
             {task.roomNumber && <span>🏠 Room {task.roomNumber}</span>}
             <span>📂 {task.category}</span>
@@ -378,7 +385,7 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
           <select
             value={task.status}
             onChange={(e) => handleStatusChange(e.target.value)}
-            className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
           >
             <option value="pending">Pending</option>
             <option value="process">Process</option>
@@ -393,20 +400,20 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
       {/* Handoff Modal */}
       {showHandoffModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md mx-4">
             <div className="p-6">
-              <h3 className="text-lg font-semibold mb-4">Handoff Task</h3>
+              <h3 className="text-lg font-semibold mb-4 text-gray-900 dark:text-gray-100">Handoff Task</h3>
               
               <div className="space-y-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Handoff to Department *
                   </label>
                   <select
                     required
                     value={handoffData.department}
                     onChange={(e) => setHandoffData(prev => ({ ...prev, department: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   >
                     <option value="">Select Department</option>
                     <option value="service">Service</option>
@@ -417,13 +424,13 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                     Reason for Handoff
                   </label>
                   <textarea
                     value={handoffData.reason}
                     onChange={(e) => setHandoffData(prev => ({ ...prev, reason: e.target.value }))}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="w-full px-3 py-2 border border-gray-300 dark:border-gray-700 rounded-lg bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                     rows={3}
                     placeholder="Explain why this task needs to be handed off..."
                   />
@@ -433,7 +440,7 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
               <div className="flex justify-end space-x-4 mt-6">
                 <button
                   onClick={() => setShowHandoffModal(false)}
-                  className="px-4 py-2 text-gray-700 bg-gray-100 rounded-lg hover:bg-gray-200 transition duration-200"
+                  className="px-4 py-2 text-gray-700 dark:text-gray-200 bg-gray-100 dark:bg-gray-700 rounded-lg hover:bg-gray-200 dark:hover:bg-gray-600 transition duration-200"
                 >
                   Cancel
                 </button>

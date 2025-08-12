@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Initialize auth state
+  // Initialize auth state quickly from localStorage
   useEffect(() => {
     const token = localStorage.getItem("token");
     const user = getLocalStorageUser();
@@ -45,15 +45,21 @@ export function AuthProvider({ children }) {
     
     try {
       const res = await authService.login(credentials);
-      const { user, token } = res.data.data;
+      const { token } = res.data.data;
 
+      // Store token first so subsequent request is authenticated
       localStorage.setItem("token", token);
-      localStorage.setItem("user", JSON.stringify(user));
+
+      // Fetch fully populated current user (includes staffProfile, etc.)
+      const meRes = await authService.getCurrentUser();
+      const fullUser = meRes.data.data.user;
+
+      localStorage.setItem("user", JSON.stringify(fullUser));
       
-      setState(prev => ({ ...prev, user, loading: false }));
-      navigate(getDashboardPath(user.role));
+      setState(prev => ({ ...prev, user: fullUser, loading: false }));
+      navigate(getDashboardPath(fullUser.role));
       
-      return user;
+      return fullUser;
     } catch (err) {
       const error = err.response?.data?.message || "Login failed";
       setState(prev => ({ ...prev, error, loading: false }));
@@ -143,6 +149,11 @@ export function AuthProvider({ children }) {
       }
     }
   }, [logout]);
+
+  // Ensure we hydrate the user (with populated profiles) on app load
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   // Provide the auth state and methods
   const value = {
