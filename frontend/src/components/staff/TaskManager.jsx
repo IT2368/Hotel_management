@@ -59,9 +59,15 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
       
       if (response.ok) {
         const data = await response.json();
-        // /my returns { tasks: [...] } wrapped in data
-        // /tasks returns { tasks: [...] } wrapped in data
-        const received = data?.data?.tasks || [];
+        // Handle different response formats
+        let received = [];
+        if (data?.data?.tasks) {
+          received = data.data.tasks;
+        } else if (data?.tasks) {
+          received = data.tasks;
+        } else if (Array.isArray(data)) {
+          received = data;
+        }
         setTasks(received);
       } else {
         console.error("Failed to fetch tasks");

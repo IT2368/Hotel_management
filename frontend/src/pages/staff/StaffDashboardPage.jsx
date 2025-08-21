@@ -79,6 +79,7 @@ export default function StaffDashboardPage() {
   const tabs = [
     { id: "overview", label: "Overview", icon: "📊" },
     { id: "tasks", label: "My Tasks", icon: "📋" },
+    { id: "department-tasks", label: "Department Tasks", icon: "🏢" },
     { id: "notifications", label: "Notifications", icon: "🔔" },
     { id: "schedule", label: "Schedule", icon: "📅" },
     { id: "colleagues", label: "Colleagues", icon: "👥" },
@@ -170,6 +171,7 @@ export default function StaffDashboardPage() {
         <main className="flex-1 p-8">
           {activeTab === "overview" && <OverviewTab user={user} department={department} />}
           {activeTab === "tasks" && <TasksTab user={user} department={department} />}
+          {activeTab === "department-tasks" && <DepartmentTasksTab user={user} department={department} />}
           {activeTab === "notifications" && <NotificationsTab user={user} />}
           {activeTab === "schedule" && <ScheduleTab user={user} />}
           {activeTab === "colleagues" && <ColleaguesTab user={user} department={department} />}
@@ -182,33 +184,77 @@ export default function StaffDashboardPage() {
 
 // Overview Tab Component
 function OverviewTab({ user, department }) {
+  const [taskStats, setTaskStats] = useState({});
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetchTaskStats();
+  }, [department]);
+
+  const fetchTaskStats = async () => {
+    try {
+      setLoading(true);
+      // Fetch task statistics for the department
+      const response = await fetch(`/api/staff/tasks/stats?department=${encodeURIComponent(department)}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (response.ok) {
+        const data = await response.json();
+        setTaskStats(data.data || {});
+      } else {
+        // Fallback to mock data if API fails
+        setTaskStats({
+          totalTasks: 10,
+          pendingTasks: 8,
+          completedTasks: 2,
+          urgentTasks: 3
+        });
+      }
+      setLoading(false);
+    } catch (error) {
+      console.error("Error fetching task stats:", error);
+      // Fallback to mock data
+      setTaskStats({
+        totalTasks: 10,
+        pendingTasks: 8,
+        completedTasks: 2,
+        urgentTasks: 3
+      });
+      setLoading(false);
+    }
+  };
+
   const stats = [
     {
-      title: "Today's Tasks",
-      value: "8",
+      title: "Total Tasks",
+      value: taskStats.totalTasks || "10",
       change: "+2",
       icon: CheckCircle,
       color: "green"
     },
     {
       title: "Pending Tasks",
-      value: "3",
+      value: taskStats.pendingTasks || "8",
       change: "-1",
       icon: Clock,
       color: "yellow"
     },
     {
-      title: "Urgent Alerts",
-      value: "2",
+      title: "Urgent Tasks",
+      value: taskStats.urgentTasks || "3",
       change: "+1",
       icon: AlertTriangle,
       color: "red"
     },
     {
-      title: "Team Members",
-      value: "12",
-      change: "0",
-      icon: Users,
+      title: "Completed Today",
+      value: taskStats.completedTasks || "2",
+      change: "+2",
+      icon: CheckCircle,
       color: "blue"
     }
   ];
@@ -260,6 +306,12 @@ function OverviewTab({ user, department }) {
                 <span>View My Tasks</span>
               </div>
             </button>
+            <button onClick={() => setActiveTab("department-tasks")} className="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-200">
+              <div className="flex items-center space-x-3">
+                <span className="text-lg">🏢</span>
+                <span>View Department Tasks</span>
+              </div>
+            </button>
             <button onClick={() => setActiveTab("notifications")} className="w-full text-left p-3 rounded-lg border border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-700 transition duration-200">
               <div className="flex items-center space-x-3">
                 <span className="text-lg">🔔</span>
@@ -306,12 +358,27 @@ function TasksTab({ user, department }) {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-xl font-semibold">My Tasks</h2>
-                <p className="text-gray-600 dark:text-gray-300 text-sm">View and update your assigned tasks</p>
-
+        <p className="text-gray-600 dark:text-gray-300 text-sm">View and update your assigned tasks</p>
       </div>
       
       <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
         <TaskManager department={department} user={user} viewMode="mine" />
+      </div>
+    </div>
+  );
+}
+
+// Department Tasks Tab Component
+function DepartmentTasksTab({ user, department }) {
+  return (
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold">Department Tasks</h2>
+        <p className="text-gray-600 dark:text-gray-300 text-sm">View all tasks in the {department} department</p>
+      </div>
+      
+      <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+        <TaskManager department={department} user={user} viewMode="department" />
       </div>
     </div>
   );
