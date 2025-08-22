@@ -17,7 +17,8 @@
     "seed:cleaning": "node seed-cleaning-tasks.js",
     "seed:service": "node seed-service-tasks.js",
     "seed:kitchen": "node seed-kitchen-tasks.js",
-    "seed:all": "npm run seed:maintenance && npm run seed:cleaning && npm run seed:service && npm run seed:kitchen"
+    "seed:all": "npm run seed:maintenance && npm run seed:cleaning && npm run seed:service && npm run seed:kitchen",
+    "assign:3-tasks": "node assign-3-tasks-per-staff.js"
   },
   "keywords": [],
   "devDependencies": {
