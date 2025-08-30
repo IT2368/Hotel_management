@@ -94,6 +94,7 @@ export default function StaffDashboardPage() {
   const tabs = [
     { id: "overview", label: "Overview", icon: "📊" },
     { id: "tasks", label: "My Tasks", icon: "📋" },
+    { id: "contact", label: "Contact Manager", icon: "💬" },
     { id: "notifications", label: "Notifications", icon: "🔔" }
   ];
 
@@ -127,7 +128,7 @@ export default function StaffDashboardPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Valdor Hotel - {currentDept.name} Dashboard
+                Valdor Hotel - service
               </h1>
               <p className="text-gray-600 dark:text-gray-300 text-sm">{currentDept.description}</p>
             </div>
@@ -147,7 +148,7 @@ export default function StaffDashboardPage() {
             >
               <span className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
               <span className="relative flex items-center space-x-2">
-                <span>🚪</span>
+                <span>🔐</span>
                 <span>Logout</span>
               </span>
             </button>
@@ -202,8 +203,9 @@ export default function StaffDashboardPage() {
         {/* Main Content */}
         <main className="flex-1 p-8">
           <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 dark:border-gray-800/50 p-6">
-            {activeTab === "overview" && <OverviewTab user={user} department={department} />}
+            {activeTab === "overview" && <OverviewTab user={user} department={department} setActiveTab={setActiveTab} />}
             {activeTab === "tasks" && <TasksTab user={user} department={department} />}
+            {activeTab === "contact" && <ContactManagerTab user={user} department={department} />}
             {activeTab === "notifications" && <NotificationsTab user={user} />}
           </div>
         </main>
@@ -213,7 +215,7 @@ export default function StaffDashboardPage() {
 }
 
 // Overview Tab Component
-function OverviewTab({ user, department }) {
+function OverviewTab({ user, department, setActiveTab }) {
   const [taskStats, setTaskStats] = useState({});
   const [loading, setLoading] = useState(true);
 
@@ -290,94 +292,210 @@ function OverviewTab({ user, department }) {
   ];
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h2 className="text-xl font-semibold mb-4">
-          Welcome back, {user?.name?.split(" ")[0]}! 👋
-        </h2>
-        <p className="text-gray-600 dark:text-gray-300">
-          Here's what's happening in your {department} department today.
+    <div className="space-y-8 relative">
+      {/* Floating Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-xl animate-pulse delay-1000"></div>
+        <div className="absolute bottom-20 left-1/4 w-36 h-36 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full blur-xl animate-pulse delay-2000"></div>
+      </div>
+
+      {/* Enhanced Welcome Header */}
+      <div className="relative">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-30 animate-pulse"></div>
+              <h2 className="relative text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
+                Welcome back, {user?.name?.split(" ")[0]}!
+              </h2>
+            </div>
+            <div className="animate-bounce text-2xl">👋</div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+            <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">
+              {department} Department Active
+            </p>
+          </div>
+        </div>
+        <p className="text-gray-600 dark:text-gray-300 mt-2 text-lg font-medium">
+          Here's what's happening in your department today.
         </p>
       </div>
 
-      {/* Stats Grid */}
+      {/* Enhanced Stats Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat) => (
-          <div key={stat.title} className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-lg border border-white/30 p-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-gray-600 dark:text-gray-400">{stat.title}</p>
-                <p className="text-2xl font-bold text-gray-900 dark:text-gray-100">{stat.value}</p>
+        {stats.map((stat, index) => (
+          <div 
+            key={stat.title} 
+            className="group relative"
+            style={{ animationDelay: `${index * 150}ms` }}
+          >
+            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+            <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 p-6 transform hover:scale-105 hover:-translate-y-2 transition-all duration-500">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <p className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">{stat.title}</p>
+                  <p className="text-4xl font-black bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+                    {stat.value}
+                  </p>
+                </div>
+                <div className="relative">
+                  <div className={`absolute inset-0 bg-gradient-to-r from-${stat.color}-400 to-${stat.color}-600 rounded-2xl blur opacity-30 animate-pulse`}></div>
+                  <div className={`relative p-4 rounded-2xl bg-gradient-to-br from-${stat.color}-400 to-${stat.color}-600 shadow-2xl transform group-hover:rotate-12 transition-transform duration-500`}>
+                    <stat.icon />
+                  </div>
+                </div>
               </div>
-              <div className={`p-3 rounded-full bg-${stat.color}-100`}>
-                <stat.icon />
+              <div className="flex items-center space-x-2">
+                <div className={`px-3 py-1 rounded-full text-sm font-bold shadow-lg ${
+                  stat.change.startsWith('+') 
+                    ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white animate-pulse' 
+                    : stat.change.startsWith('-') 
+                    ? 'bg-gradient-to-r from-red-400 to-red-500 text-white animate-pulse' 
+                    : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white'
+                }`}>
+                  {stat.change}
+                </div>
+                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                  from yesterday
+                </span>
               </div>
-            </div>
-            <div className="mt-4">
-              <span className={`text-sm font-medium ${
-                stat.change.startsWith('+') ? 'text-green-600' : 
-                stat.change.startsWith('-') ? 'text-red-600' : 'text-gray-600 dark:text-gray-400'
-              }`}>
-                {stat.change} from yesterday
-              </span>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-lg border border-white/30 p-6">
-          <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
-          <div className="space-y-3">
-            <button onClick={() => setActiveTab("tasks")} className="group w-full text-left p-4 rounded-xl border border-white/40 dark:border-gray-700/50 hover:bg-gradient-to-r hover:from-blue-500/20 hover:to-indigo-500/20 dark:hover:from-blue-600/20 dark:hover:to-indigo-600/20 backdrop-blur-sm transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
-              <div className="flex items-center space-x-4">
-                <div className="p-2 bg-blue-100/70 dark:bg-blue-900/50 rounded-lg group-hover:bg-blue-200/80 dark:group-hover:bg-blue-800/60 transition-all duration-300">
-                  <span className="text-xl">📋</span>
+      {/* Enhanced Quick Actions */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="group relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+          <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden">
+            <div className="relative bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 p-6 border-b border-white/20 dark:border-gray-700/30">
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-xl blur opacity-50 animate-pulse"></div>
+                  <div className="relative p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+                    <span className="text-2xl filter drop-shadow-sm">⚡</span>
+                  </div>
                 </div>
                 <div>
-                  <span className="font-semibold text-gray-800 dark:text-gray-200">View My Tasks</span>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Manage your assignments</p>
-                </div>
-                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <span className="text-blue-500">→</span>
-                </div>
-              </div>
-            </button>
-            <button onClick={() => setActiveTab("notifications")} className="group w-full text-left p-4 rounded-xl border border-white/40 dark:border-gray-700/50 hover:bg-gradient-to-r hover:from-purple-500/20 hover:to-pink-500/20 dark:hover:from-purple-600/20 dark:hover:to-pink-600/20 backdrop-blur-sm transition-all duration-300 transform hover:scale-105 hover:shadow-lg">
-              <div className="flex items-center space-x-4">
-                <div className="p-2 bg-purple-100/70 dark:bg-purple-900/50 rounded-lg group-hover:bg-purple-200/80 dark:group-hover:bg-purple-800/60 transition-all duration-300">
-                  <span className="text-xl">🔔</span>
-                </div>
-                <div>
-                  <span className="font-semibold text-gray-800 dark:text-gray-200">Check Notifications</span>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">View updates & alerts</p>
-                </div>
-                <div className="ml-auto opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                  <span className="text-purple-500">→</span>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+                    Quick Actions
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Navigate to key sections</p>
                 </div>
               </div>
-            </button>
+            </div>
+            <div className="p-6 space-y-4">
+              <button onClick={() => setActiveTab("tasks")} className="group w-full text-left p-5 rounded-2xl border-2 border-transparent bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/30 dark:to-indigo-900/30 hover:border-blue-400/50 hover:shadow-2xl backdrop-blur-sm transition-all duration-500 transform hover:scale-105 hover:-translate-y-1">
+                <div className="flex items-center space-x-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-2xl blur opacity-30 animate-pulse"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-xl group-hover:rotate-12 transition-transform duration-500">
+                      <span className="text-2xl filter drop-shadow-sm">📋</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <span className="font-bold text-gray-800 dark:text-gray-200 text-lg">View My Tasks</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Manage your assignments</p>
+                  </div>
+                  <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-2">
+                    <span className="text-2xl text-blue-500 animate-bounce">→</span>
+                  </div>
+                </div>
+              </button>
+              
+              <button onClick={() => setActiveTab("contact")} className="group w-full text-left p-5 rounded-2xl border-2 border-transparent bg-gradient-to-r from-green-50/80 to-emerald-50/80 dark:from-green-900/30 dark:to-emerald-900/30 hover:border-green-400/50 hover:shadow-2xl backdrop-blur-sm transition-all duration-500 transform hover:scale-105 hover:-translate-y-1">
+                <div className="flex items-center space-x-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 rounded-2xl blur opacity-30 animate-pulse"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-xl group-hover:rotate-12 transition-transform duration-500">
+                      <span className="text-2xl filter drop-shadow-sm">💬</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <span className="font-bold text-gray-800 dark:text-gray-200 text-lg">Contact Manager</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Send messages & requests</p>
+                  </div>
+                  <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-2">
+                    <span className="text-2xl text-green-500 animate-bounce">→</span>
+                  </div>
+                </div>
+              </button>
+              
+              <button onClick={() => setActiveTab("notifications")} className="group w-full text-left p-5 rounded-2xl border-2 border-transparent bg-gradient-to-r from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 hover:border-purple-400/50 hover:shadow-2xl backdrop-blur-sm transition-all duration-500 transform hover:scale-105 hover:-translate-y-1">
+                <div className="flex items-center space-x-4">
+                  <div className="relative">
+                    <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 rounded-2xl blur opacity-30 animate-pulse"></div>
+                    <div className="relative p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl shadow-xl group-hover:rotate-12 transition-transform duration-500">
+                      <span className="text-2xl filter drop-shadow-sm">🔔</span>
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <span className="font-bold text-gray-800 dark:text-gray-200 text-lg">Check Notifications</span>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">View updates & alerts</p>
+                  </div>
+                  <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-2">
+                    <span className="text-2xl text-purple-500 animate-bounce">→</span>
+                  </div>
+                </div>
+              </button>
+            </div>
           </div>
         </div>
 
-        <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-lg border border-white/30 p-6">
-          <h3 className="text-lg font-semibold mb-4">Recent Activity</h3>
-          <div className="space-y-4">
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-green-500 rounded-full"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-300">Task "Fix Room 205 AC" completed</span>
-              <span className="text-xs text-gray-400">2 hours ago</span>
+        <div className="group relative">
+          <div className="absolute -inset-1 bg-gradient-to-r from-cyan-600 via-teal-600 to-green-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+          <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden">
+            <div className="relative bg-gradient-to-r from-teal-500/10 via-cyan-500/10 to-green-500/10 p-6 border-b border-white/20 dark:border-gray-700/30">
+              <div className="flex items-center space-x-3">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-teal-400 to-cyan-400 rounded-xl blur opacity-50 animate-pulse"></div>
+                  <div className="relative p-3 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-xl shadow-lg">
+                    <span className="text-2xl filter drop-shadow-sm">📈</span>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+                    Recent Activity
+                  </h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Latest updates</p>
+                </div>
+              </div>
             </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-300">New task assigned: "Kitchen equipment maintenance"</span>
-              <span className="text-xs text-gray-400">4 hours ago</span>
-            </div>
-            <div className="flex items-center space-x-3">
-              <div className="w-2 h-2 bg-yellow-500 rounded-full"></div>
-              <span className="text-sm text-gray-600 dark:text-gray-300">Schedule updated for next week</span>
-              <span className="text-xs text-gray-400">1 day ago</span>
+            <div className="p-6 space-y-4">
+              <div className="group flex items-center space-x-4 p-4 rounded-2xl hover:bg-gradient-to-r hover:from-green-50/50 hover:to-emerald-50/50 dark:hover:from-green-900/20 dark:hover:to-emerald-900/20 transition-all duration-300">
+                <div className="relative">
+                  <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-pulse shadow-lg"></div>
+                  <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-30"></div>
+                </div>
+                <div className="flex-1">
+                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">Task "Fix Room 205 AC" completed</span>
+                  <span className="block text-xs text-gray-400 font-medium">2 hours ago</span>
+                </div>
+              </div>
+              <div className="group flex items-center space-x-4 p-4 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300">
+                <div className="relative">
+                  <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full animate-pulse shadow-lg"></div>
+                  <div className="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-30"></div>
+                </div>
+                <div className="flex-1">
+                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">New task assigned: "Kitchen equipment maintenance"</span>
+                  <span className="block text-xs text-gray-400 font-medium">4 hours ago</span>
+                </div>
+              </div>
+              <div className="group flex items-center space-x-4 p-4 rounded-2xl hover:bg-gradient-to-r hover:from-yellow-50/50 hover:to-amber-50/50 dark:hover:from-yellow-900/20 dark:hover:to-amber-900/20 transition-all duration-300">
+                <div className="relative">
+                  <div className="w-3 h-3 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full animate-pulse shadow-lg"></div>
+                  <div className="absolute inset-0 bg-yellow-400 rounded-full animate-ping opacity-30"></div>
+                </div>
+                <div className="flex-1">
+                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">Schedule updated for next week</span>
+                  <span className="block text-xs text-gray-400 font-medium">1 day ago</span>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -434,94 +552,576 @@ function TasksTab({ user, department }) {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">My Tasks</h2>
-        <p className="text-gray-600 dark:text-gray-300 text-sm">View and manage your assigned tasks</p>
+    <div className="space-y-8 relative">
+      {/* Floating Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-indigo-400/20 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-xl animate-pulse delay-1000"></div>
+        <div className="absolute bottom-20 left-1/3 w-40 h-40 bg-gradient-to-br from-cyan-400/20 to-teal-400/20 rounded-full blur-xl animate-pulse delay-2000"></div>
       </div>
 
-      {/* Task Summary Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        {taskViews.map((view) => (
+      {/* Enhanced Header */}
+      <div className="relative">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-30 animate-pulse"></div>
+              <h2 className="relative text-3xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                My Tasks
+              </h2>
+            </div>
+            <div className="animate-bounce">📋</div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+            <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">View and manage your assigned tasks</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced Task Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+        {taskViews.map((view, index) => (
           <div
             key={view.id}
             onClick={() => setActiveTaskView(view.id)}
-            className={`group relative bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-2xl shadow-lg p-6 cursor-pointer transition-all duration-300 transform hover:scale-105 hover:shadow-2xl border overflow-hidden ${
-              activeTaskView === view.id 
-                ? 'ring-2 ring-indigo-500 border-indigo-400 bg-gradient-to-br from-indigo-50/80 to-purple-50/80 dark:from-indigo-900/40 dark:to-purple-900/40' 
-                : 'border-white/40 dark:border-gray-700/50 hover:border-indigo-300/50'
-            }`}
+            className="group relative cursor-pointer"
+            style={{ animationDelay: `${index * 150}ms` }}
           >
-            {activeTaskView === view.id && (
-              <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 animate-pulse"></div>
-            )}
-            <div className="relative flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-gray-600 dark:text-gray-400 mb-1">{view.label}</p>
-                <p className="text-4xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">{view.count}</p>
-                {activeTaskView === view.id && (
-                  <div className="mt-2 flex items-center space-x-1 text-indigo-600 dark:text-indigo-400">
-                    <div className="w-2 h-2 bg-indigo-500 rounded-full animate-bounce"></div>
-                    <span className="text-xs font-medium">Active View</span>
+            <div className={`absolute -inset-1 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000 ${
+              view.color === 'blue' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600' :
+              view.color === 'yellow' ? 'bg-gradient-to-r from-yellow-600 via-amber-600 to-orange-600' :
+              'bg-gradient-to-r from-red-600 via-pink-600 to-rose-600'
+            }`}></div>
+            <div className={`relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden transition-all duration-500 transform hover:scale-105 hover:-translate-y-2 ${
+              activeTaskView === view.id 
+                ? 'ring-2 ring-indigo-500 shadow-3xl' 
+                : ''
+            }`}>
+              {activeTaskView === view.id && (
+                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 animate-pulse"></div>
+              )}
+              
+              <div className={`relative p-6 bg-gradient-to-r ${
+                view.color === 'blue' ? 'from-blue-500/10 via-indigo-500/10 to-cyan-500/10' :
+                view.color === 'yellow' ? 'from-yellow-500/10 via-amber-500/10 to-orange-500/10' :
+                'from-red-500/10 via-pink-500/10 to-rose-500/10'
+              } border-b border-white/20 dark:border-gray-700/30`}>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-4">
+                    <div className="relative">
+                      <div className={`absolute inset-0 rounded-2xl blur opacity-50 animate-pulse ${
+                        view.color === 'blue' ? 'bg-gradient-to-r from-blue-400 to-indigo-400' :
+                        view.color === 'yellow' ? 'bg-gradient-to-r from-yellow-400 to-amber-400' :
+                        'bg-gradient-to-r from-red-400 to-pink-400'
+                      }`}></div>
+                      <div className={`relative p-1 rounded-md shadow-xl group-hover:rotate-12 transition-transform duration-500 ${
+                        view.color === 'blue' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
+                        view.color === 'green' ? 'bg-gradient-to-br from-green-500 to-emerald-600' :
+                        view.color === 'yellow' ? 'bg-gradient-to-br from-yellow-500 to-amber-600' :
+                        'bg-gradient-to-br from-red-500 to-pink-600'
+                      }`}>
+                        <span className="text-xs filter drop-shadow-sm">{view.icon}</span>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">{view.label}</p>
+                      <p className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+                        {view.count}
+                      </p>
+                    </div>
                   </div>
-                )}
-              </div>
-              <div className={`relative p-4 rounded-2xl transition-all duration-300 ${
-                activeTaskView === view.id 
-                  ? `bg-gradient-to-br from-${view.color}-400 to-${view.color}-600 shadow-lg transform rotate-3` 
-                  : `bg-${view.color}-100/70 dark:bg-gray-700/50 group-hover:bg-${view.color}-200/80 dark:group-hover:bg-gray-600/70 group-hover:rotate-6`
-              }`}>
-                <span className={`text-3xl ${
-                  activeTaskView === view.id ? 'filter drop-shadow-sm' : ''
-                }`}>{view.icon}</span>
-                {activeTaskView === view.id && (
-                  <div className="absolute -top-1 -right-1 w-3 h-3 bg-white rounded-full animate-ping"></div>
-                )}
+                  {activeTaskView === view.id && (
+                    <div className="flex items-center space-x-2">
+                      <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce"></div>
+                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 animate-pulse">ACTIVE</span>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Task List */}
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-lg border border-white/30">
-        <div className="p-6 border-b border-white/30 dark:border-gray-700/50">
-          <div className="flex justify-between items-center">
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">
-              {taskViews.find(v => v.id === activeTaskView)?.label} ({filteredTasks.length})
-            </h3>
-          </div>
-        </div>
-
-        <div className="divide-y divide-white/30 dark:divide-gray-700/50">
-          {filteredTasks.length === 0 ? (
-            <div className="p-12 text-center">
-              <div className="text-gray-400 text-6xl mb-4">📋</div>
-              <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No tasks found</h3>
-              <p className="text-gray-600 dark:text-gray-300">
-                No {activeTaskView} tasks available at the moment.
-              </p>
+      {/* Enhanced Task List */}
+      <div className="group relative">
+        <div className="absolute -inset-1 bg-gradient-to-r from-slate-600 via-gray-600 to-zinc-600 rounded-3xl blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
+        <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden">
+          <div className="relative bg-gradient-to-r from-slate-500/10 via-gray-500/10 to-zinc-500/10 p-6 border-b border-white/20 dark:border-gray-700/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-slate-400 to-gray-400 rounded-xl blur opacity-50 animate-pulse"></div>
+                  <div className="relative p-3 bg-gradient-to-r from-slate-500 to-gray-600 rounded-xl shadow-lg">
+                    <span className="text-2xl filter drop-shadow-sm">📋</span>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+                    {taskViews.find(v => v.id === activeTaskView)?.label}
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                      {filteredTasks.length} tasks
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
-          ) : (
-            filteredTasks.map(task => (
-              <TaskCard
-                key={task._id}
-                task={task}
-                onStatusChange={(taskId, newStatus) => {
-                  setTasks(prevTasks =>
-                    prevTasks.map(t =>
-                      t._id === taskId ? { ...t, status: newStatus } : t
-                    )
-                  );
-                }}
-              />
-            ))
-          )}
+          </div>
+
+          <div className="max-h-96 overflow-y-auto">
+            {filteredTasks.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-gray-400/20 to-slate-400/20 rounded-full blur-xl animate-pulse"></div>
+                  <div className="relative text-gray-400 text-6xl mb-4 animate-bounce">📋</div>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No tasks found</h3>
+                <p className="text-gray-600 dark:text-gray-300">
+                  No {activeTaskView} tasks available at the moment.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-white/30 dark:divide-gray-700/50">
+                {filteredTasks.map((task, index) => (
+                  <TaskCard
+                    key={task._id}
+                    task={task}
+                    index={index}
+                    onStatusChange={(taskId, newStatus) => {
+                      setTasks(prevTasks =>
+                        prevTasks.map(t =>
+                          t._id === taskId ? { ...t, status: newStatus } : t
+                        )
+                      );
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
   );
 }
+
+// Contact Manager Tab Component
+function ContactManagerTab({ user, department }) {
+  const [messages, setMessages] = useState([]);
+  const [newMessage, setNewMessage] = useState("");
+  const [messageType, setMessageType] = useState("general");
+  const [priority, setPriority] = useState("medium");
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    // Load existing messages/conversations
+    loadMessages();
+  }, []);
+
+  const loadMessages = () => {
+    // Mock messages for demonstration
+    const mockMessages = [
+      {
+        id: 1,
+        type: "request",
+        priority: "high",
+        subject: "Equipment Replacement Request",
+        message: "The vacuum cleaner in storage room B is broken and needs immediate replacement.",
+        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+        status: "pending",
+        response: null
+      },
+      {
+        id: 2,
+        type: "general",
+        priority: "medium",
+        subject: "Schedule Change Request",
+        message: "Could I please switch my shift on Friday with another team member? I have a family emergency.",
+        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
+        status: "responded",
+        response: {
+          message: "Approved. Please coordinate with Sarah from the evening shift.",
+          timestamp: new Date(Date.now() - 20 * 60 * 60 * 1000)
+        }
+      }
+    ];
+    setMessages(mockMessages);
+  };
+
+  const handleSendMessage = async () => {
+    if (!newMessage.trim()) return;
+
+    setLoading(true);
+    
+    const message = {
+      id: Date.now(),
+      type: messageType,
+      priority: priority,
+      subject: getSubjectFromType(messageType),
+      message: newMessage,
+      timestamp: new Date(),
+      status: "pending",
+      response: null
+    };
+
+    // Add to messages
+    setMessages(prev => [message, ...prev]);
+    
+    // Clear form
+    setNewMessage("");
+    setMessageType("general");
+    setPriority("medium");
+    
+    setLoading(false);
+
+    // Here you would typically send to your API
+    // await sendMessageToManager(message);
+  };
+
+  const getSubjectFromType = (type) => {
+    const subjects = {
+      general: "General Inquiry",
+      request: "Resource Request",
+      complaint: "Issue Report",
+      schedule: "Schedule Request",
+      emergency: "Emergency Alert"
+    };
+    return subjects[type] || "Message";
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case "high":
+        return "bg-red-100 text-red-800 border-red-200";
+      case "medium":
+        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+      case "low":
+        return "bg-green-100 text-green-800 border-green-200";
+      default:
+        return "bg-gray-100 text-gray-800 border-gray-200";
+    }
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case "pending":
+        return "bg-yellow-100 text-yellow-800";
+      case "responded":
+        return "bg-green-100 text-green-800";
+      case "closed":
+        return "bg-gray-100 text-gray-800";
+      default:
+        return "bg-blue-100 text-blue-800";
+    }
+  };
+
+  return (
+    <div className="space-y-8 relative">
+      {/* Floating Background Elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-xl animate-pulse"></div>
+        <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-xl animate-pulse delay-1000"></div>
+        <div className="absolute bottom-20 left-1/3 w-40 h-40 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full blur-xl animate-pulse delay-2000"></div>
+      </div>
+
+      {/* Header with animated title */}
+      <div className="relative">
+        <div className="flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <div className="relative">
+              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl blur opacity-30 animate-pulse"></div>
+              <h2 className="relative text-3xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 bg-clip-text text-transparent">
+                Contact Manager
+              </h2>
+            </div>
+            <div className="animate-bounce">💬</div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <div className="w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
+            <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">Connected to Management</p>
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced New Message Form */}
+      <div className="group relative">
+        <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
+        <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden">
+          <div className="relative bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 p-6 border-b border-white/20 dark:border-gray-700/30">
+            <div className="flex items-center space-x-3">
+              <div className="relative">
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-xl blur opacity-50 animate-pulse"></div>
+                <div className="relative p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
+                  <span className="text-2xl filter drop-shadow-sm">✉️</span>
+                </div>
+              </div>
+              <div>
+                <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+                  Compose Message
+                </h3>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Send a message to your manager</p>
+              </div>
+            </div>
+          </div>
+          <div className="p-6 space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="group">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center space-x-2">
+                  <span>🏷️</span>
+                  <span>Message Type</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={messageType}
+                    onChange={(e) => setMessageType(e.target.value)}
+                    className="w-full px-5 py-4 border-2 border-transparent bg-gradient-to-r from-white/90 to-gray-50/90 dark:from-gray-700/90 dark:to-gray-800/90 backdrop-blur-sm rounded-2xl text-gray-900 dark:text-gray-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-400/20 transition-all duration-300 hover:shadow-lg appearance-none cursor-pointer font-bold"
+                  >
+                    <option value="general" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">💬 General Inquiry</option>
+                    <option value="request" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">📋 Resource Request</option>
+                    <option value="complaint" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">⚠️ Issue Report</option>
+                    <option value="schedule" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">📅 Schedule Request</option>
+                    <option value="emergency" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">🚨 Emergency Alert</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                    <div className="w-6 h-6 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs">▼</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="group">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center space-x-2">
+                  <span>🎯</span>
+                  <span>Priority Level</span>
+                </label>
+                <div className="relative">
+                  <select
+                    value={priority}
+                    onChange={(e) => setPriority(e.target.value)}
+                    className="w-full px-5 py-4 border-2 border-transparent bg-gradient-to-r from-white/90 to-gray-50/90 dark:from-gray-700/90 dark:to-gray-800/90 backdrop-blur-sm rounded-2xl text-gray-900 dark:text-gray-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-400/20 transition-all duration-300 hover:shadow-lg appearance-none cursor-pointer font-bold"
+                  >
+                    <option value="low" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">🟢 Low Priority</option>
+                    <option value="medium" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">🟡 Medium Priority</option>
+                    <option value="high" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">🔴 High Priority</option>
+                  </select>
+                  <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                    <div className="w-6 h-6 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full flex items-center justify-center">
+                      <span className="text-white text-xs">▼</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="group">
+              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center space-x-2">
+                <span>✍️</span>
+                <span>Your Message</span>
+              </label>
+              <div className="relative">
+                <textarea
+                  value={newMessage}
+                  onChange={(e) => setNewMessage(e.target.value)}
+                  placeholder="Type your message here... Be specific and clear about your request."
+                  rows={5}
+                  className="w-full px-5 py-4 border-2 border-transparent bg-gradient-to-br from-white/80 via-gray-50/80 to-white/80 dark:from-gray-800/80 dark:via-gray-900/80 dark:to-gray-800/80 backdrop-blur-sm rounded-2xl text-gray-900 dark:text-gray-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-400/20 transition-all duration-300 hover:shadow-lg resize-none font-medium placeholder-gray-500 dark:placeholder-gray-400"
+                />
+                <div className="absolute bottom-3 right-3 text-xs text-gray-400 font-medium">
+                  {newMessage.length}/500
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end">
+              <button
+                onClick={handleSendMessage}
+                disabled={loading || !newMessage.trim()}
+                className="group relative px-8 py-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white rounded-2xl shadow-2xl hover:shadow-3xl transform hover:scale-105 hover:-translate-y-1 transition-all duration-500 font-bold overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none min-w-[160px]"
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse"></div>
+                <span className="relative flex items-center justify-center space-x-3">
+                  {loading ? (
+                    <>
+                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
+                      <span>Sending...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-xl animate-bounce">🚀</span>
+                      <span>Send Message</span>
+                    </>
+                  )}
+                </span>
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Enhanced Message History */}
+      <div className="relative">
+        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 rounded-3xl blur opacity-20"></div>
+        <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden">
+          <div className="relative bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 p-6 border-b border-white/20 dark:border-gray-700/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center space-x-4">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-xl blur opacity-50 animate-pulse"></div>
+                  <div className="relative p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg">
+                    <span className="text-2xl filter drop-shadow-sm">📨</span>
+                  </div>
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+                    Message History
+                  </h3>
+                  <div className="flex items-center space-x-2">
+                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
+                      {messages.length} conversations
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="max-h-96 overflow-y-auto">
+            {messages.length === 0 ? (
+              <div className="p-12 text-center">
+                <div className="relative">
+                  <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full blur-xl animate-pulse"></div>
+                  <div className="relative text-gray-400 text-6xl mb-4 animate-bounce">💬</div>
+                </div>
+                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No messages yet</h3>
+                <p className="text-gray-600 dark:text-gray-300">
+                  Send your first message to your manager using the form above.
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-white/30 dark:divide-gray-700/50">
+                {messages.map((message, index) => (
+                  <div 
+                    key={message.id} 
+                    className="group p-6 hover:bg-gradient-to-r hover:from-white/60 hover:to-gray-50/60 dark:hover:from-gray-700/60 dark:hover:to-gray-800/60 transition-all duration-500 transform hover:scale-[1.02] hover:shadow-lg"
+                    style={{ animationDelay: `${index * 100}ms` }}
+                  >
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center space-x-4">
+                        <div className="relative">
+                          <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-xl blur opacity-30 animate-pulse"></div>
+                          <div className="relative p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
+                            <span className="text-lg filter drop-shadow-sm">{getTypeIcon(message.type)}</span>
+                          </div>
+                        </div>
+                        <div>
+                          <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">{message.subject}</h4>
+                          <div className="flex items-center space-x-3">
+                            <span className={`px-3 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${getPriorityGradient(message.priority)} text-white shadow-lg`}>
+                              {message.priority.toUpperCase()}
+                            </span>
+                            <span className={`px-3 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${getStatusGradient(message.status)} text-white shadow-lg animate-pulse`}>
+                              {message.status.toUpperCase()}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
+                          {message.timestamp.toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="relative">
+                      <div className="absolute -inset-1 bg-gradient-to-r from-gray-200/50 to-gray-300/50 dark:from-gray-700/50 dark:to-gray-800/50 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative bg-gradient-to-br from-gray-50/80 to-white/80 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-sm p-5 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-inner">
+                        <p className="text-gray-700 dark:text-gray-300 font-medium leading-relaxed">
+                          {message.message}
+                        </p>
+                      </div>
+                    </div>
+
+                    {message.response && (
+                      <div className="mt-6 relative">
+                        <div className="absolute -inset-1 bg-gradient-to-r from-green-400/30 to-emerald-400/30 rounded-2xl blur opacity-50 animate-pulse"></div>
+                        <div className="relative pl-6 border-l-4 border-gradient-to-b from-green-400 to-emerald-500">
+                          <div className="flex items-center space-x-3 mb-3">
+                            <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg">
+                              <span className="text-lg filter drop-shadow-sm">👨‍💼</span>
+                            </div>
+                            <div>
+                              <span className="text-sm font-bold text-green-600 dark:text-green-400">Manager Response</span>
+                              <span className="block text-xs text-gray-500 dark:text-gray-400 font-medium">
+                                {message.response.timestamp.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="relative">
+                            <div className="absolute -inset-1 bg-gradient-to-r from-green-100/50 to-emerald-100/50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl blur"></div>
+                            <div className="relative bg-gradient-to-br from-green-50/90 to-emerald-50/90 dark:from-green-900/40 dark:to-emerald-900/40 backdrop-blur-sm p-4 rounded-2xl border border-green-200/50 dark:border-green-700/50 shadow-inner">
+                              <p className="text-gray-700 dark:text-gray-300 font-medium leading-relaxed">
+                                {message.response.message}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// Helper functions for ContactManagerTab
+const getTypeIcon = (type) => {
+  const icons = {
+    general: "💬",
+    request: "📋",
+    complaint: "⚠️",
+    schedule: "📅",
+    emergency: "🚨"
+  };
+  return icons[type] || "💬";
+};
+
+const getPriorityGradient = (priority) => {
+  switch (priority) {
+    case "high":
+      return "from-red-400 via-red-500 to-red-600";
+    case "medium":
+      return "from-amber-400 via-orange-500 to-yellow-600";
+    case "low":
+      return "from-emerald-400 via-green-500 to-teal-600";
+    default:
+      return "from-gray-400 via-gray-500 to-gray-600";
+  }
+};
+
+const getStatusGradient = (status) => {
+  switch (status) {
+    case "pending":
+      return "from-amber-400 to-orange-500";
+    case "responded":
+      return "from-emerald-400 to-green-500";
+    case "closed":
+      return "from-gray-400 to-gray-500";
+    default:
+      return "from-blue-400 to-indigo-500";
+  }
+};
 
 // Notifications Tab Component
 function NotificationsTab({ user }) {
@@ -549,33 +1149,63 @@ function NotificationsTab({ user }) {
   );
 }
 
-// Task Card Component for displaying individual tasks
-function TaskCard({ task, onStatusChange }) {
+// Enhanced Task Card Component for displaying individual tasks
+function TaskCard({ task, onStatusChange, index }) {
   const getStatusIcon = (status) => {
     switch (status) {
       case "pending":
-        return <Clock className="h-4 w-4 text-yellow-500" />;
+        return "⏳";
       case "process":
-        return <AlertTriangle className="h-4 w-4 text-orange-500" />;
+        return "🔄";
       case "completed":
-        return <CheckCircle className="h-4 w-4 text-green-500" />;
+        return "✅";
       default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
+        return "⏳";
     }
   };
 
-  const getPriorityColor = (priority) => {
+  const getStatusGradient = (status) => {
+    switch (status) {
+      case "pending":
+        return "from-amber-400 to-yellow-500";
+      case "process":
+        return "from-blue-400 to-indigo-500";
+      case "completed":
+        return "from-emerald-400 to-green-500";
+      default:
+        return "from-gray-400 to-gray-500";
+    }
+  };
+
+  const getPriorityGradient = (priority) => {
     switch (priority) {
       case "urgent":
-        return "bg-red-100 text-red-800 border-red-200";
+        return "from-red-500 via-red-600 to-rose-600";
       case "high":
-        return "bg-orange-100 text-orange-800 border-orange-200";
+        return "from-orange-500 via-amber-600 to-yellow-600";
       case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
+        return "from-blue-500 via-indigo-600 to-purple-600";
       case "low":
-        return "bg-green-100 text-green-800 border-green-200";
+        return "from-emerald-500 via-green-600 to-teal-600";
       default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
+        return "from-gray-500 via-slate-600 to-zinc-600";
+    }
+  };
+
+  const getLocationIcon = (location) => {
+    switch (location) {
+      case "room":
+        return "🏠";
+      case "lobby":
+        return "🏛️";
+      case "kitchen":
+        return "👨‍🍳";
+      case "pool":
+        return "🏊‍♂️";
+      case "gym":
+        return "💪";
+      default:
+        return "📍";
     }
   };
 
@@ -584,48 +1214,91 @@ function TaskCard({ task, onStatusChange }) {
   };
 
   return (
-    <div className="group p-6 hover:bg-white/60 dark:hover:bg-gray-700/60 backdrop-blur-sm transition-all duration-300 hover:shadow-md border-l-4 border-transparent hover:border-indigo-400">
+    <div 
+      className="group relative p-6 hover:bg-gradient-to-r hover:from-white/60 hover:to-gray-50/60 dark:hover:from-gray-700/60 dark:hover:to-gray-800/60 transition-all duration-500 transform hover:scale-[1.02] hover:shadow-xl"
+      style={{ animationDelay: `${index * 100}ms` }}
+    >
+      {/* Animated border gradient */}
+      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-400 via-purple-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-r-full"></div>
+      
       <div className="flex items-start justify-between">
         <div className="flex-1">
-          <div className="flex items-center space-x-3 mb-2">
-            {getStatusIcon(task.status)}
-            <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">{task.title}</h4>
-            <span className={`px-3 py-1 text-xs font-bold rounded-full border-2 shadow-sm ${getPriorityColor(task.priority)} transform group-hover:scale-105 transition-transform duration-200`}>
-              {task.priority.toUpperCase()}
-            </span>
-            {task.isUrgent && (
-              <span className="px-3 py-1 text-xs font-bold bg-gradient-to-r from-red-500 to-red-600 text-white rounded-full shadow-lg animate-pulse border-2 border-red-300">
-                🚨 URGENT
-              </span>
-            )}
+          <div className="flex items-center space-x-4 mb-4">
+            <div className="relative">
+              <div className={`absolute inset-0 rounded-xl blur opacity-30 animate-pulse bg-gradient-to-r ${getStatusGradient(task.status)}`}></div>
+              <div className={`relative p-2 rounded-xl shadow-lg bg-gradient-to-r ${getStatusGradient(task.status)} group-hover:rotate-6 transition-transform duration-300`}>
+                <span className="text-lg filter drop-shadow-sm">{getStatusIcon(task.status)}</span>
+              </div>
+            </div>
+            <div className="flex-1">
+              <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-300">
+                {task.title}
+              </h4>
+              <div className="flex items-center space-x-3 flex-wrap gap-2">
+                <span className={`px-4 py-2 text-xs font-bold rounded-full text-white shadow-lg bg-gradient-to-r ${getPriorityGradient(task.priority)} transform group-hover:scale-110 transition-all duration-300 animate-pulse`}>
+                  {task.priority.toUpperCase()}
+                </span>
+                <span className={`px-4 py-2 text-xs font-bold rounded-full text-white shadow-lg bg-gradient-to-r ${getStatusGradient(task.status)} transform group-hover:scale-110 transition-all duration-300`}>
+                  {task.status.toUpperCase()}
+                </span>
+                {task.isUrgent && (
+                  <span className="px-4 py-2 text-xs font-bold bg-gradient-to-r from-red-500 via-red-600 to-rose-600 text-white rounded-full shadow-xl animate-bounce border-2 border-red-300 transform group-hover:scale-110 transition-all duration-300">
+                    🚨 URGENT
+                  </span>
+                )}
+              </div>
+            </div>
           </div>
           
-          <p className="text-gray-600 dark:text-gray-300 mb-3">{task.description}</p>
+          <div className="relative mb-4">
+            <div className="absolute -inset-1 bg-gradient-to-r from-gray-200/50 to-gray-300/50 dark:from-gray-700/50 dark:to-gray-800/50 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative bg-gradient-to-br from-gray-50/80 to-white/80 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-sm p-4 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-inner">
+              <p className="text-gray-700 dark:text-gray-300 font-medium leading-relaxed">{task.description}</p>
+            </div>
+          </div>
           
-          <div className="flex items-center space-x-6 text-sm text-gray-500 dark:text-gray-400">
-            <span>📍 {task.location}</span>
-            {task.roomNumber && <span>🏠 Room {task.roomNumber}</span>}
-            <span>📂 {task.category}</span>
-            <span>⏱️ {task.estimatedDuration} min</span>
-            <span>📅 {new Date(task.createdAt).toLocaleDateString()}</span>
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-sm">
+            <div className="flex items-center space-x-2 p-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-xl border border-blue-200/50 dark:border-blue-700/50 group-hover:shadow-lg transition-all duration-300">
+              <span className="text-lg">{getLocationIcon(task.location)}</span>
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{task.location}</span>
+            </div>
+            {task.roomNumber && (
+              <div className="flex items-center space-x-2 p-3 bg-gradient-to-r from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl border border-purple-200/50 dark:border-purple-700/50 group-hover:shadow-lg transition-all duration-300">
+                <span className="text-lg">🏠</span>
+                <span className="font-semibold text-gray-700 dark:text-gray-300">Room {task.roomNumber}</span>
+              </div>
+            )}
+            <div className="flex items-center space-x-2 p-3 bg-gradient-to-r from-green-50/80 to-emerald-50/80 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl border border-green-200/50 dark:border-green-700/50 group-hover:shadow-lg transition-all duration-300">
+              <span className="text-lg">📂</span>
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{task.category}</span>
+            </div>
+            <div className="flex items-center space-x-2 p-3 bg-gradient-to-r from-orange-50/80 to-amber-50/80 dark:from-orange-900/30 dark:to-amber-900/30 rounded-xl border border-orange-200/50 dark:border-orange-700/50 group-hover:shadow-lg transition-all duration-300">
+              <span className="text-lg">⏱️</span>
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{task.estimatedDuration} min</span>
+            </div>
+            <div className="flex items-center space-x-2 p-3 bg-gradient-to-r from-cyan-50/80 to-teal-50/80 dark:from-cyan-900/30 dark:to-teal-900/30 rounded-xl border border-cyan-200/50 dark:border-cyan-700/50 group-hover:shadow-lg transition-all duration-300">
+              <span className="text-lg">📅</span>
+              <span className="font-semibold text-gray-700 dark:text-gray-300">{new Date(task.createdAt).toLocaleDateString()}</span>
+            </div>
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
-          <div className="relative">
+        <div className="flex items-start space-x-4">
+          <div className="relative group/select">
+            <div className="absolute -inset-1 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-2xl blur opacity-0 group-hover/select:opacity-30 transition-opacity duration-300"></div>
             <select
               value={task.status}
               onChange={(e) => handleStatusChange(e.target.value)}
-              className="appearance-none px-4 py-2 pr-8 text-sm font-medium border-2 border-white/40 dark:border-gray-700/50 rounded-xl bg-white/80 dark:bg-gray-900/80 backdrop-blur-sm text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-400 hover:border-indigo-300 transition-all duration-300 cursor-pointer shadow-sm hover:shadow-md"
+              className="relative appearance-none px-5 py-3 pr-10 text-sm font-bold border-2 border-transparent bg-gradient-to-r from-white/90 to-gray-50/90 dark:from-gray-800/90 dark:to-gray-900/90 backdrop-blur-sm rounded-2xl text-gray-900 dark:text-gray-100 focus:ring-4 focus:ring-indigo-400/20 focus:border-indigo-400 hover:border-indigo-300 hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105"
             >
-              <option value="pending">🟡 Pending</option>
-              <option value="process">🟠 In Progress</option>
-              <option value="completed">🟢 Completed</option>
+              <option value="pending">⏳ Pending</option>
+              <option value="process">🔄 In Progress</option>
+              <option value="completed">✅ Completed</option>
             </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-              <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
+            <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+              <div className="w-6 h-6 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full flex items-center justify-center">
+                <span className="text-white text-xs">▼</span>
+              </div>
             </div>
           </div>
         </div>
