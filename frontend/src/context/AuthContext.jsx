@@ -28,7 +28,7 @@ export function AuthProvider({ children }) {
     }
   };
 
-  // Initialize auth state
+  // Initialize auth state quickly from localStorage
   useEffect(() => {
     const token = localStorage.getItem("token");
     const user = getLocalStorageUser();
@@ -238,6 +238,11 @@ export function AuthProvider({ children }) {
       }
     }
   }, [logout]);
+
+  // Ensure we hydrate the user (with populated profiles) on app load
+  useEffect(() => {
+    checkAuth();
+  }, [checkAuth]);
 
   // Provide the auth state and methods
   const value = {

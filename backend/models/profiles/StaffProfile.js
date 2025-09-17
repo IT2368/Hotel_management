@@ -53,84 +53,83 @@ const staffProfileSchema = new mongoose.Schema(
     },
     department: {
       type: String,
-      enum: ["Housekeeping", "Kitchen", "Maintenance", "Service"],
+      enum: ["maintenance", "kitchen", "service", "cleaning"],
       required: true,
     },
-    position: {
-      type: String,
-      trim: true,
-      required: true,
+    position: { type: String, required: true }, // e.g., "Senior Maintenance Technician", "Head Chef", "Concierge"
+    shift: { 
+      type: String, 
+      enum: ["morning", "evening", "night", "flexible"],
+      default: "morning"
     },
-    shifts: [
-      {
-        day: {
-          type: String,
-          enum: [
-            "Monday",
-            "Tuesday",
-            "Wednesday",
-            "Thursday",
-            "Friday",
-            "Saturday",
-            "Sunday",
-          ],
-          required: true,
-        },
-        startTime: {
-          type: String,
-          required: true,
-          match: /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/,
-        },
-        endTime: {
-          type: String,
-          required: true,
-          match: /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/,
-        },
-      },
-    ],
-    assignedRooms: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "Room",
-      },
-    ],
-    assignedTasks: [taskSchema],
-    qualifications: [
-      {
-        name: { type: String, trim: true },
-        issuingAuthority: { type: String, trim: true },
-        issueDate: Date,
-        expiryDate: Date,
-        document: String,
-      },
-    ],
+    shiftHours: {
+      start: { type: String, default: "08:00" }, // 24-hour format
+      end: { type: String, default: "16:00" },
+    },
+    assignedRooms: [{ type: mongoose.Schema.Types.ObjectId, ref: "Room" }],
+    assignedAreas: [String], // e.g., ["Floor 1-3", "Kitchen A", "Pool Area"]
+    skills: [String], // e.g., ["electrical", "plumbing", "cooking", "cleaning"]
+    certifications: [{
+      name: String,
+      issuedBy: String,
+      issuedDate: Date,
+      expiryDate: Date,
+      certificateNumber: String,
+    }],
     emergencyContact: {
-      name: { type: String, trim: true },
-      relationship: { type: String, trim: true },
-      phone: {
-        type: String,
-        validate: {
-          validator: function (v) {
-            return /^[+]*[(]{0,1}[0-9]{1,4}[)]{0,1}[-\s\./0-9]*$/.test(v);
-          },
-          message: (props) => `${props.value} is not a valid phone number!`,
-        },
+      name: String,
+      relationship: String,
+      phone: String,
+      email: String,
+    },
+    performance: {
+      rating: { type: Number, min: 1, max: 5, default: 3 },
+      completedTasks: { type: Number, default: 0 },
+      averageCompletionTime: { type: Number, default: 0 }, // in minutes
+      lastReviewDate: Date,
+    },
+    availability: {
+      isAvailable: { type: Boolean, default: true },
+      unavailableUntil: Date,
+      reason: String,
+    },
+    preferences: {
+      preferredTasks: [String],
+      preferredAreas: [String],
+      maxTasksPerDay: { type: Number, default: 8 },
+    },
+    // Department-specific fields
+    departmentSpecific: {
+      // Maintenance specific
+      maintenance: {
+        specialties: [String], // ["electrical", "plumbing", "hvac"]
+        tools: [String], // ["multimeter", "wrench_set", "drill"]
+        vehicleAssigned: String,
+      },
+      // Kitchen specific
+      kitchen: {
+        specialties: [String], // ["pastry", "grill", "sauces"]
+        foodSafetyCertified: { type: Boolean, default: false },
+        allergens: [String], // ["nuts", "dairy", "gluten"]
+        kitchenStation: String, // ["main_kitchen", "pastry", "room_service"]
+      },
+      // Service specific
+      service: {
+        languages: [String], // ["english", "spanish", "french"]
+        serviceAreas: [String], // ["concierge", "room_service", "events"]
+        uniformSize: String,
+        customerServiceRating: { type: Number, min: 1, max: 5 },
+      },
+      // Cleaning specific
+      cleaning: {
+        cleaningSpecialties: [String], // ["deep_cleaning", "laundry", "restocking"]
+        assignedFloor: String,
+        cleaningSupplies: [String],
+        inspectionCertified: { type: Boolean, default: false },
       },
     },
     isActive: { type: Boolean, default: true },
-    joinedDate: {
-      type: Date,
-      default: Date.now,
-    },
-    performanceReviews: [
-      {
-        date: { type: Date, default: Date.now },
-        reviewer: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
-        rating: { type: Number, min: 1, max: 5 },
-        comments: { type: String, trim: true },
-      },
-    ],
-    notes: { type: String, trim: true },
+    lastActive: { type: Date, default: Date.now },
   },
   {
     timestamps: true,
@@ -139,21 +138,10 @@ const staffProfileSchema = new mongoose.Schema(
   }
 );
 
-// Virtuals
-staffProfileSchema.virtual("fullName").get(function () {
-  return this.userId?.name;
-});
-staffProfileSchema.virtual("email").get(function () {
-  return this.userId?.email;
-});
-staffProfileSchema.virtual("phone").get(function () {
-  return this.userId?.phone;
-});
-
-// Indexes
-staffProfileSchema.index({ department: 1 });
-staffProfileSchema.index({ position: 1 });
-staffProfileSchema.index({ isActive: 1 });
+// Indexes for better query performance
+staffProfileSchema.index({ department: 1, isActive: 1 });
+staffProfileSchema.index({ "availability.isAvailable": 1, department: 1 });
+staffProfileSchema.index({ "performance.rating": -1 });
 
 const StaffProfile = mongoose.model("StaffProfile", staffProfileSchema);
 export default StaffProfile;
