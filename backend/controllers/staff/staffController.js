@@ -1,8 +1,8 @@
 // 📁 backend/controllers/staff/staffController.js
 import StaffProfile from "../../models/profiles/StaffProfile.js";
-import User from "../../models/User.js";
+import { User } from "../../models/User.js";
 import { formatResponse } from "../../utils/responseFormatter.js";
-import { logger } from "../../utils/logger.js";
+import logger from "../../utils/logger.js";
 
 // Get current user's staff profile
 export const getMyProfile = async (req, res) => {

@@ -1,9 +1,9 @@
 // 📁 backend/controllers/staff/notificationController.js
 import StaffNotification from "../../models/StaffNotification.js";
 import StaffProfile from "../../models/profiles/StaffProfile.js";
-import User from "../../models/User.js";
+import { User } from "../../models/User.js";
 import { formatResponse } from "../../utils/responseFormatter.js";
-import { logger } from "../../utils/logger.js";
+import logger from "../../utils/logger.js";
 
 // Get notifications for current user
 export const getMyNotifications = async (req, res) => {

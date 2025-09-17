@@ -1,7 +1,7 @@
 // 📁 backend/controllers/staff/scheduleController.js
 import StaffProfile from "../../models/profiles/StaffProfile.js";
 import { formatResponse } from "../../utils/responseFormatter.js";
-import { logger } from "../../utils/logger.js";
+import logger from "../../utils/logger.js";
 
 // Get current user's schedule
 export const getMySchedule = async (req, res) => {

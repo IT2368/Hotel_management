@@ -2,9 +2,9 @@
 import StaffTask from "../../models/StaffTask.js";
 import StaffNotification from "../../models/StaffNotification.js";
 import StaffProfile from "../../models/profiles/StaffProfile.js";
-import User from "../../models/User.js";
+import { User } from "../../models/User.js";
 import { formatResponse } from "../../utils/responseFormatter.js";
-import { logger } from "../../utils/logger.js";
+import logger from "../../utils/logger.js";
 
 // Get all tasks with filtering
 export const getTasks = async (req, res) => {
