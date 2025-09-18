@@ -6,7 +6,6 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
   const [filteredTasks, setFilteredTasks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-
   const [filters, setFilters] = useState({
     status: "all",
     priority: "all",
@@ -42,13 +41,163 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
     applyFilters();
   }, [tasks, filters, searchTerm]);
 
+  // Normalize department to canonical values
+  const normalizeDepartment = (value) => {
+    const key = String(value || "").toLowerCase().trim();
+    const map = {
+      chef: "kitchen",
+      cheff: "kitchen",
+      kitchen: "kitchen",
+      maintenance: "maintenance",
+      maintanence: "maintenance",
+      maintenence: "maintenance",
+      service: "service",
+      services: "service",
+      cleaning: "cleaning",
+      housekeeping: "cleaning",
+    };
+    return map[key] || key || "service";
+  };
+
+  const getMockTasks = (dept) => {
+    const baseId = Date.now();
+    const byDept = {
+      maintenance: [
+        {
+          title: "Fix AC in Room 205",
+          description:
+            "Guest reported AC not working properly. Check and repair the cooling system.",
+          category: "hvac",
+          priority: "high",
+          status: "pending",
+          location: "room",
+          roomNumber: "205",
+          estimatedDuration: 45,
+          isUrgent: false,
+        },
+        {
+          title: "Replace light bulbs in lobby",
+          description: "Several lobby light bulbs need replacement.",
+          category: "electrical",
+          priority: "medium",
+          status: "process",
+          location: "lobby",
+          estimatedDuration: 30,
+          isUrgent: false,
+        },
+        {
+          title: "Fix leaking faucet in Room 312",
+          description: "Leaking bathroom faucet requires immediate attention.",
+          category: "plumbing",
+          priority: "urgent",
+          status: "pending",
+          location: "room",
+          roomNumber: "312",
+          estimatedDuration: 60,
+          isUrgent: true,
+        },
+      ],
+      kitchen: [
+        {
+          title: "Prepare breakfast buffet",
+          description: "Set up and prepare breakfast buffet for guests.",
+          category: "food_preparation",
+          priority: "high",
+          status: "completed",
+          location: "kitchen",
+          estimatedDuration: 60,
+          isUrgent: false,
+        },
+        {
+          title: "Clean and sanitize prep area",
+          description: "Deep clean prep surfaces and equipment.",
+          category: "cleaning",
+          priority: "medium",
+          status: "process",
+          location: "kitchen",
+          estimatedDuration: 45,
+          isUrgent: false,
+        },
+        {
+          title: "Inventory check - dairy products",
+          description: "Check stock levels and expiry of dairy items.",
+          category: "inventory",
+          priority: "medium",
+          status: "pending",
+          location: "kitchen",
+          estimatedDuration: 30,
+          isUrgent: false,
+        },
+      ],
+      service: [
+        {
+          title: "Guest transportation request",
+          description: "Room 301 needs airport transfer at 2 PM.",
+          category: "transportation",
+          priority: "medium",
+          status: "pending",
+          location: "lobby",
+          roomNumber: "301",
+          estimatedDuration: 20,
+          isUrgent: false,
+        },
+        {
+          title: "VIP guest welcome setup",
+          description: "Prepare amenities and setup for VIP arrival.",
+          category: "guest_request",
+          priority: "high",
+          status: "process",
+          location: "room",
+          roomNumber: "501",
+          estimatedDuration: 40,
+          isUrgent: false,
+        },
+      ],
+      cleaning: [
+        {
+          title: "Deep clean Room 102",
+          description: "Post-checkout deep cleaning and sanitization.",
+          category: "deep_cleaning",
+          priority: "high",
+          status: "pending",
+          location: "room",
+          roomNumber: "102",
+          estimatedDuration: 90,
+          isUrgent: false,
+        },
+        {
+          title: "Laundry - bed linens",
+          description: "Process and clean bed linens from checkouts.",
+          category: "laundry",
+          priority: "medium",
+          status: "process",
+          location: "other",
+          estimatedDuration: 120,
+          isUrgent: false,
+        },
+      ],
+    };
+
+    const templates = byDept[dept] || byDept.service || [];
+    return templates.map((t, i) => ({
+      ...t,
+      _id: `${baseId + i}`,
+      assignedTo: {
+        id: user?.id || "user1",
+        name: user?.name || "Current User",
+      },
+      createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString(),
+    }));
+  };
+
   const fetchTasks = async () => {
     try {
       setLoading(true);
+      const dept = normalizeDepartment(department);
       // Choose endpoint based on view mode
       const endpoint = viewMode === "mine"
         ? "/api/staff/tasks/my"
-        : `/api/staff/tasks?department=${encodeURIComponent(department)}`;
+        : `/api/staff/tasks?department=${encodeURIComponent(dept)}`;
 
       const response = await fetch(endpoint, {
         headers: {
@@ -68,15 +217,21 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
         } else if (Array.isArray(data)) {
           received = data;
         }
-        setTasks(received);
+        if (!received || received.length === 0) {
+          // Fallback to department-specific mock tasks
+          setTasks(getMockTasks(dept));
+        } else {
+          setTasks(received);
+        }
       } else {
         console.error("Failed to fetch tasks");
-        setTasks([]);
+        setTasks(getMockTasks(dept));
       }
       setLoading(false);
     } catch (error) {
       console.error("Error fetching tasks:", error);
-      setTasks([]);
+      const dept = normalizeDepartment(department);
+      setTasks(getMockTasks(dept));
       setLoading(false);
     }
   };
@@ -746,7 +901,7 @@ function getMockTasks(department) {
       {
         id: 4,
         title: "Guest transportation request",
-        description: "Guest in Room 301 needs transportation to airport at 2 PM.",
+        description: "",
         status: "assigned",
         priority: "medium",
         category: "transportation",

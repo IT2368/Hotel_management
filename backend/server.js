@@ -19,6 +19,7 @@ import notificationRoutes from "./routes/notificationRoutes.js";
 import "./eventListeners/notificationListeners.js";
 import staffRoutes from "./routes/staff.js";
 import guestRoutes from "./routes/guestRoutes.js";
+import messageRoutes from "./routes/messages.js";
 
 const app = express();
 app.set("trust proxy", 1);
@@ -78,11 +79,15 @@ app.get("/health", async (req, res) => {
     database: dbHealth,
   });
 });
-app.use("/api/auth", authRoutes);
-app.use("/api/admin", adminRoutes);
-app.use("/api/notifications", notificationRoutes);
-app.use("/api/staff", staffRoutes);
-app.use("/api/guests", guestRoutes);
+// Mount routes
+app.use("/api/v1/auth", authLimiter, authRoutes);
+// Backward compatibility: accept legacy non-versioned auth path
+app.use("/api/auth", authLimiter, authRoutes);
+app.use("/api/v1/admin", adminRoutes);
+app.use("/api/v1/notifications", notificationRoutes);
+app.use("/api/v1/staff", staffRoutes);
+app.use("/api/v1/guests", guestRoutes);
+app.use("/api/v1/messages", messageRoutes);
 
 app.use("/api", (req, res) => {
   console.warn(`🔍 Unknown API route: ${req.originalUrl}`);

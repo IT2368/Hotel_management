@@ -1,6 +1,26 @@
 import { useContext, useState, useEffect } from "react";
 import { AuthContext } from "../../context/AuthContext";
 import useAuth from "../../hooks/useAuth";
+import { sendMessage, getMessages } from "../../services/messageService";
+import staffService from "../../services/staffService";
+
+// Module-scope department normalizer so all components can use it
+function normalizeDepartment(value) {
+  const key = String(value || "").toLowerCase().trim();
+  const map = {
+    chef: "kitchen",
+    cheff: "kitchen",
+    kitchen: "kitchen",
+    maintenance: "maintenance",
+    maintanence: "maintenance",
+    maintenence: "maintenance",
+    service: "service",
+    services: "service",
+    cleaning: "cleaning",
+    housekeeping: "cleaning",
+  };
+  return map[key] || key || "service";
+}
 
 // Simple icon components as fallbacks
 const Bell = () => <span className="text-xl">🔔</span>;
@@ -29,8 +49,21 @@ export default function StaffDashboardPage() {
     }
   }, []);
 
+  // Get department from user profile with role-based fallback mapping
+  const roleDeptMap = {
+    chef: "kitchen",
+    cheff: "kitchen", // common misspelling
+    kitchen: "kitchen",
+    maintenance: "maintenance",
+    maintanence: "maintenance", // common misspelling
+    service: "service",
+    cleaning: "cleaning",
+    housekeeping: "cleaning",
+  };
+  const inferredDept = roleDeptMap[(user?.staffProfile?.position || user?.role || "").toLowerCase()];
   // Get department from user profile with multiple fallback checks
-  const department = user?.staffProfile?.department || user?.department || "service";
+  const department = user?.staffProfile?.department || user?.department || inferredDept || "service";
+  // Note: normalization available at module scope for reuse
   
   const departmentConfig = {
     maintenance: {
@@ -110,15 +143,7 @@ export default function StaffDashboardPage() {
   }
 
   return (
-    <div 
-      className="min-h-screen text-gray-800 dark:text-gray-200 relative"
-      style={{
-        backgroundImage: `linear-gradient(rgba(0, 0, 0, 0.4), rgba(0, 0, 0, 0.6)), url('${currentDept.backgroundImage}')`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundAttachment: 'fixed'
-      }}
-    >
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
       {/* Header */}
       <header className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg border-b border-white/20">
         <div className="mx-auto px-4 py-4 flex justify-between items-center">
@@ -128,9 +153,9 @@ export default function StaffDashboardPage() {
             </div>
             <div>
               <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Valdor Hotel - service
+                Valdor Hotel - {currentDept.name} Department
               </h1>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">{currentDept.description}</p>
+              <p className="text-gray-600 dark:text-gray-300 text-sm">Welcome back! Here's what's happening in {currentDept.name.toLowerCase()} today.</p>
             </div>
           </div>
           <div className="flex items-center space-x-4">
@@ -226,26 +251,9 @@ function OverviewTab({ user, department, setActiveTab }) {
   const fetchTaskStats = async () => {
     try {
       setLoading(true);
-      // Fetch task statistics for the department
-      const response = await fetch(`/api/staff/tasks/stats?department=${encodeURIComponent(department)}`, {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`,
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (response.ok) {
-        const data = await response.json();
-        setTaskStats(data.data || {});
-      } else {
-        // Fallback to mock data if API fails
-        setTaskStats({
-          totalTasks: 10,
-          pendingTasks: 8,
-          completedTasks: 2,
-          urgentTasks: 3
-        });
-      }
+      // Fetch task statistics for the department via API client (baseURL=/api/v1)
+      const data = await staffService.getTaskStats({ department });
+      setTaskStats(data?.data || data || {});
       setLoading(false);
     } catch (error) {
       console.error("Error fetching task stats:", error);
@@ -293,74 +301,52 @@ function OverviewTab({ user, department, setActiveTab }) {
 
   return (
     <div className="space-y-8 relative">
-      {/* Floating Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-xl animate-pulse delay-1000"></div>
-        <div className="absolute bottom-20 left-1/4 w-36 h-36 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full blur-xl animate-pulse delay-2000"></div>
-      </div>
+      {/* Clean background (removed neon gradients) */}
 
-      {/* Enhanced Welcome Header */}
+      {/* Clean Welcome Header */}
       <div className="relative">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-purple-600 rounded-2xl blur opacity-30 animate-pulse"></div>
-              <h2 className="relative text-3xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent">
-                Welcome back, {user?.name?.split(" ")[0]}!
-              </h2>
-            </div>
-            <div className="animate-bounce text-2xl">👋</div>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              Welcome back, {user?.name?.split(" ")[0]}!
+            </h2>
+            <div className="text-2xl">👋</div>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
             <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">
               {department} Department Active
             </p>
           </div>
         </div>
         <p className="text-gray-600 dark:text-gray-300 mt-2 text-lg font-medium">
-          Here's what's happening in your department today.
+          {`Here's what's happening in ${String(department).toLowerCase()} today.`}
         </p>
       </div>
 
-      {/* Enhanced Stats Grid */}
+      {/* Stats Grid - dark rounded cards layout */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {stats.map((stat, index) => (
           <div 
             key={stat.title} 
-            className="group relative"
+            className="relative"
             style={{ animationDelay: `${index * 150}ms` }}
           >
-            <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-            <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 p-6 transform hover:scale-105 hover:-translate-y-2 transition-all duration-500">
-              <div className="flex items-center justify-between mb-4">
-                <div>
-                  <p className="text-sm font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wider">{stat.title}</p>
-                  <p className="text-4xl font-black bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
-                    {stat.value}
-                  </p>
+            <div className="relative rounded-2xl bg-gray-900/80 dark:bg-gray-800 text-gray-100 border border-gray-700 shadow-sm p-6">
+              <div className="flex items-start justify-between">
+                <div className="space-y-1">
+                  <p className="text-xs font-semibold text-gray-400 tracking-widest uppercase">{stat.title}</p>
+                  <p className="text-4xl font-extrabold tracking-tight">{stat.value}</p>
                 </div>
-                <div className="relative">
-                  <div className={`absolute inset-0 bg-gradient-to-r from-${stat.color}-400 to-${stat.color}-600 rounded-2xl blur opacity-30 animate-pulse`}></div>
-                  <div className={`relative p-4 rounded-2xl bg-gradient-to-br from-${stat.color}-400 to-${stat.color}-600 shadow-2xl transform group-hover:rotate-12 transition-transform duration-500`}>
-                    <stat.icon />
-                  </div>
+                <div className="shrink-0 rounded-xl bg-gray-700/70 p-3">
+                  <stat.icon />
                 </div>
               </div>
-              <div className="flex items-center space-x-2">
-                <div className={`px-3 py-1 rounded-full text-sm font-bold shadow-lg ${
-                  stat.change.startsWith('+') 
-                    ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white animate-pulse' 
-                    : stat.change.startsWith('-') 
-                    ? 'bg-gradient-to-r from-red-400 to-red-500 text-white animate-pulse' 
-                    : 'bg-gradient-to-r from-gray-400 to-gray-500 text-white'
-                }`}>
+              <div className="mt-4 flex items-center gap-3">
+                <span className="inline-flex items-center rounded-full bg-gray-700/70 px-2.5 py-0.5 text-xs font-semibold text-gray-200">
                   {stat.change}
-                </div>
-                <span className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                  from yesterday
                 </span>
+                <span className="text-xs text-gray-400">from yesterday</span>
               </div>
             </div>
           </div>
@@ -511,14 +497,31 @@ function TasksTab({ user, department }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchSampleTasks();
+    fetchTasksFromApi();
   }, [department, user]);
 
-  const fetchSampleTasks = () => {
-    // Generate sample tasks based on department and user
-    const sampleTasks = generateSampleTasks(department, user);
-    setTasks(sampleTasks);
-    setLoading(false);
+  const fetchTasksFromApi = async () => {
+    try {
+      setLoading(true);
+      // Load tasks for the current department; backend route: GET /api/v1/staff/tasks
+      const normalized = normalizeDepartment(department);
+      const data = await staffService.getTasks({ department: normalized });
+      const received = data?.data?.tasks || data?.tasks || (Array.isArray(data) ? data : []);
+      if (!received || received.length === 0) {
+        // Fallback to department-specific sample tasks
+        const samples = generateSampleTasks(normalized, user);
+        setTasks(samples);
+      } else {
+        setTasks(received);
+      }
+    } catch (err) {
+      console.error("Failed to load tasks:", err);
+      // Fallback to department-specific sample tasks on error
+      const samples = generateSampleTasks(normalizeDepartment(department), user);
+      setTasks(samples);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getFilteredTasks = () => {
@@ -553,88 +556,51 @@ function TasksTab({ user, department }) {
 
   return (
     <div className="space-y-8 relative">
-      {/* Floating Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-blue-400/20 to-indigo-400/20 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-xl animate-pulse delay-1000"></div>
-        <div className="absolute bottom-20 left-1/3 w-40 h-40 bg-gradient-to-br from-cyan-400/20 to-teal-400/20 rounded-full blur-xl animate-pulse delay-2000"></div>
-      </div>
-
-      {/* Enhanced Header */}
+      {/* Clean Header */}
       <div className="relative">
         <div className="flex justify-between items-center">
           <div className="flex items-center space-x-4">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-blue-600 to-indigo-600 rounded-2xl blur opacity-30 animate-pulse"></div>
-              <h2 className="relative text-3xl font-bold bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                My Tasks
-              </h2>
-            </div>
-            <div className="animate-bounce">📋</div>
+            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
+              My Tasks
+            </h2>
+            <div>📋</div>
           </div>
           <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-blue-400 rounded-full animate-ping"></div>
+            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
             <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">View and manage your assigned tasks</p>
           </div>
         </div>
       </div>
 
-      {/* Enhanced Task Summary Cards */}
+      {/* Task Summary Cards - clean style */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         {taskViews.map((view, index) => (
           <div
             key={view.id}
             onClick={() => setActiveTaskView(view.id)}
-            className="group relative cursor-pointer"
+            className="relative cursor-pointer"
             style={{ animationDelay: `${index * 150}ms` }}
           >
-            <div className={`absolute -inset-1 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000 ${
-              view.color === 'blue' ? 'bg-gradient-to-r from-blue-600 via-indigo-600 to-cyan-600' :
-              view.color === 'yellow' ? 'bg-gradient-to-r from-yellow-600 via-amber-600 to-orange-600' :
-              'bg-gradient-to-r from-red-600 via-pink-600 to-rose-600'
-            }`}></div>
-            <div className={`relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden transition-all duration-500 transform hover:scale-105 hover:-translate-y-2 ${
-              activeTaskView === view.id 
-                ? 'ring-2 ring-indigo-500 shadow-3xl' 
-                : ''
+            <div className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-200 ${
+              activeTaskView === view.id ? 'ring-2 ring-indigo-500' : ''
             }`}>
-              {activeTaskView === view.id && (
-                <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 to-purple-500/10 animate-pulse"></div>
-              )}
-              
-              <div className={`relative p-6 bg-gradient-to-r ${
-                view.color === 'blue' ? 'from-blue-500/10 via-indigo-500/10 to-cyan-500/10' :
-                view.color === 'yellow' ? 'from-yellow-500/10 via-amber-500/10 to-orange-500/10' :
-                'from-red-500/10 via-pink-500/10 to-rose-500/10'
-              } border-b border-white/20 dark:border-gray-700/30`}>
+              <div className="relative p-6 border-b border-gray-100 dark:border-gray-700">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center space-x-4">
-                    <div className="relative">
-                      <div className={`absolute inset-0 rounded-2xl blur opacity-50 animate-pulse ${
-                        view.color === 'blue' ? 'bg-gradient-to-r from-blue-400 to-indigo-400' :
-                        view.color === 'yellow' ? 'bg-gradient-to-r from-yellow-400 to-amber-400' :
-                        'bg-gradient-to-r from-red-400 to-pink-400'
-                      }`}></div>
-                      <div className={`relative p-1 rounded-md shadow-xl group-hover:rotate-12 transition-transform duration-500 ${
-                        view.color === 'blue' ? 'bg-gradient-to-br from-blue-500 to-indigo-600' :
-                        view.color === 'green' ? 'bg-gradient-to-br from-green-500 to-emerald-600' :
-                        view.color === 'yellow' ? 'bg-gradient-to-br from-yellow-500 to-amber-600' :
-                        'bg-gradient-to-br from-red-500 to-pink-600'
-                      }`}>
-                        <span className="text-xs filter drop-shadow-sm">{view.icon}</span>
-                      </div>
+                    <div className="p-2 rounded-md bg-gray-100 dark:bg-gray-700">
+                      <span className="text-xs">{view.icon}</span>
                     </div>
                     <div>
                       <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">{view.label}</p>
-                      <p className="text-3xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+                      <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
                         {view.count}
                       </p>
                     </div>
                   </div>
                   {activeTaskView === view.id && (
                     <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-indigo-500 rounded-full animate-bounce"></div>
-                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400 animate-pulse">ACTIVE</span>
+                      <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
+                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">ACTIVE</span>
                     </div>
                   )}
                 </div>
@@ -644,25 +610,21 @@ function TasksTab({ user, department }) {
         ))}
       </div>
 
-      {/* Enhanced Task List */}
-      <div className="group relative">
-        <div className="absolute -inset-1 bg-gradient-to-r from-slate-600 via-gray-600 to-zinc-600 rounded-3xl blur opacity-20 group-hover:opacity-30 transition duration-1000"></div>
-        <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden">
-          <div className="relative bg-gradient-to-r from-slate-500/10 via-gray-500/10 to-zinc-500/10 p-6 border-b border-white/20 dark:border-gray-700/30">
+      {/* Task List - clean style */}
+      <div className="relative">
+        <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+          <div className="relative p-6 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-slate-400 to-gray-400 rounded-xl blur opacity-50 animate-pulse"></div>
-                  <div className="relative p-3 bg-gradient-to-r from-slate-500 to-gray-600 rounded-xl shadow-lg">
-                    <span className="text-2xl filter drop-shadow-sm">📋</span>
-                  </div>
+                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-xl">
+                  <span className="text-2xl">📋</span>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
                     {taskViews.find(v => v.id === activeTaskView)?.label}
                   </h3>
                   <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full animate-pulse"></div>
+                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
                     <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
                       {filteredTasks.length} tasks
                     </p>
@@ -675,17 +637,14 @@ function TasksTab({ user, department }) {
           <div className="max-h-96 overflow-y-auto">
             {filteredTasks.length === 0 ? (
               <div className="p-12 text-center">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-gray-400/20 to-slate-400/20 rounded-full blur-xl animate-pulse"></div>
-                  <div className="relative text-gray-400 text-6xl mb-4 animate-bounce">📋</div>
-                </div>
+                <div className="text-gray-400 text-6xl mb-4">📋</div>
                 <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No tasks found</h3>
                 <p className="text-gray-600 dark:text-gray-300">
                   No {activeTaskView} tasks available at the moment.
                 </p>
               </div>
             ) : (
-              <div className="divide-y divide-white/30 dark:divide-gray-700/50">
+              <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {filteredTasks.map((task, index) => (
                   <TaskCard
                     key={task._id}
@@ -716,70 +675,121 @@ function ContactManagerTab({ user, department }) {
   const [messageType, setMessageType] = useState("general");
   const [priority, setPriority] = useState("medium");
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
 
   useEffect(() => {
     // Load existing messages/conversations
     loadMessages();
+    
+    // Set up polling to check for new messages every 30 seconds
+    const intervalId = setInterval(loadMessages, 30000);
+    
+    // Clean up interval on component unmount
+    return () => clearInterval(intervalId);
   }, []);
 
-  const loadMessages = () => {
-    // Mock messages for demonstration
-    const mockMessages = [
-      {
-        id: 1,
-        type: "request",
-        priority: "high",
-        subject: "Equipment Replacement Request",
-        message: "The vacuum cleaner in storage room B is broken and needs immediate replacement.",
-        timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-        status: "pending",
-        response: null
-      },
-      {
-        id: 2,
-        type: "general",
-        priority: "medium",
-        subject: "Schedule Change Request",
-        message: "Could I please switch my shift on Friday with another team member? I have a family emergency.",
-        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-        status: "responded",
-        response: {
-          message: "Approved. Please coordinate with Sarah from the evening shift.",
-          timestamp: new Date(Date.now() - 20 * 60 * 60 * 1000)
+  const loadMessages = async () => {
+    try {
+      setLoading(true);
+      // In a real app, you would fetch messages from the backend
+      // const response = await getMessages();
+      // setMessages(response.data);
+      
+      // For now, using mock data
+      const mockMessages = [
+        {
+          id: 1,
+          type: "request",
+          priority: "high",
+          subject: "Equipment Replacement Request",
+          message: "The vacuum cleaner in storage room B is broken and needs immediate replacement.",
+          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
+          status: "pending",
+          department: department,
+          response: null
+        },
+        {
+          id: 2,
+          type: "general",
+          priority: "medium",
+          subject: "Schedule Change Request",
+          message: "Could I please switch my shift on Friday with another team member? I have a family emergency.",
+          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
+          status: "responded",
+          department: department,
+          response: {
+            message: "Approved. Please coordinate with Sarah from the evening shift.",
+            timestamp: new Date(Date.now() - 20 * 60 * 60 * 1000)
+          }
         }
-      }
-    ];
-    setMessages(mockMessages);
+      ];
+      
+      // Filter messages by department if needed
+      const filteredMessages = mockMessages.filter(msg => 
+        msg.department === department || msg.department === 'all'
+      );
+      
+      setMessages(filteredMessages);
+      setError(null);
+    } catch (err) {
+      console.error('Error loading messages:', err);
+      setError('Failed to load messages. Please try again later.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleSendMessage = async () => {
     if (!newMessage.trim()) return;
 
     setLoading(true);
+    setError(null);
+    setSuccess(null);
     
-    const message = {
-      id: Date.now(),
-      type: messageType,
-      priority: priority,
-      subject: getSubjectFromType(messageType),
-      message: newMessage,
-      timestamp: new Date(),
-      status: "pending",
-      response: null
-    };
+    try {
+      const messageData = {
+        type: messageType,
+        priority: priority,
+        subject: getSubjectFromType(messageType),
+        message: newMessage,
+        department: department
+      };
 
-    // Add to messages
-    setMessages(prev => [message, ...prev]);
-    
-    // Clear form
-    setNewMessage("");
-    setMessageType("general");
-    setPriority("medium");
-    
-    setLoading(false);
+      // In a real app, you would send this to your backend
+      // const response = await sendMessage(messageData);
+      
+      // For now, simulate API call
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Create a mock response
+      const newMsg = {
+        id: Date.now(),
+        ...messageData,
+        timestamp: new Date(),
+        status: "pending",
+        response: null
+      };
 
-    // Here you would typically send to your API
-    // await sendMessageToManager(message);
+      // Add to messages
+      setMessages(prev => [newMsg, ...prev]);
+      
+      // Show success message
+      setSuccess('Message sent successfully!');
+      
+      // Clear form
+      setNewMessage("");
+      setMessageType("general");
+      setPriority("medium");
+      
+      // Clear success message after 5 seconds
+      setTimeout(() => setSuccess(null), 5000);
+    } catch (err) {
+      console.error('Error sending message:', err);
+      setError(err.message || 'Failed to send message. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const getSubjectFromType = (type) => {
@@ -868,6 +878,18 @@ function ContactManagerTab({ user, department }) {
             </div>
           </div>
           <div className="p-6 space-y-6">
+            {/* Status Messages */}
+            {error && (
+              <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded">
+                <p>{error}</p>
+              </div>
+            )}
+            {success && (
+              <div className="p-4 bg-green-100 border-l-4 border-green-500 text-green-700 rounded">
+                <p>{success}</p>
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="group">
                 <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center space-x-2">
