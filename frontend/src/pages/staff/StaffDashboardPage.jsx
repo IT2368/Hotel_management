@@ -144,9 +144,16 @@ export default function StaffDashboardPage() {
 
   return (
     <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
-      {/* Header */}
-      <header className="bg-white/90 dark:bg-gray-800/90 backdrop-blur-sm shadow-lg border-b border-white/20">
-        <div className="mx-auto px-4 py-4 flex justify-between items-center">
+      {/* Header with Department Background */}
+      <header className="relative overflow-hidden shadow-lg border-b border-white/20 h-40 md:h-48">
+        {/* Background image layer */}
+        <div
+          className="absolute inset-0 bg-center bg-cover"
+          style={{ backgroundImage: `url(${currentDept.backgroundImage})` }}
+        />
+        {/* Overlay for readability */}
+        <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/70 backdrop-blur-sm" />
+        <div className="relative h-full mx-auto px-4 py-4 flex justify-between items-end">
           <div className="flex items-center space-x-4">
             <div className={`p-3 rounded-lg bg-${currentDept.color}-100 dark:bg-gray-700`}>
               <span className="text-2xl">{currentDept.icon}</span>
@@ -505,21 +512,54 @@ function TasksTab({ user, department }) {
       setLoading(true);
       // Load tasks for the current department; backend route: GET /api/v1/staff/tasks
       const normalized = normalizeDepartment(department);
-      const data = await staffService.getTasks({ department: normalized });
-      const received = data?.data?.tasks || data?.tasks || (Array.isArray(data) ? data : []);
+      // Prefer fetching tasks assigned to the current user. Backend route: GET /api/v1/staff/tasks/my
+      // Include department as a filter if your backend supports it; otherwise it will be ignored safely.
+      const data = await staffService.getMyTasks({ department: normalized });
+      let received = data?.data?.tasks || data?.tasks || (Array.isArray(data) ? data : []);
+      // Ensure minimum fields exist for rendering (createdAt used in TaskCard)
+      if (Array.isArray(received)) {
+        received = received.map((t) => ({
+          ...t,
+          createdAt: t?.createdAt || t?.dueDate || new Date().toISOString(),
+        }));
+      }
+      console.debug("[TasksTab] API tasks received:", Array.isArray(received) ? received.length : typeof received);
       if (!received || received.length === 0) {
+        // Attempt department-wide tasks as a fallback in case assignments don't match the current user
+        try {
+          const deptData = await staffService.getTasks({ department: normalized });
+          let deptTasks = deptData?.data?.tasks || deptData?.tasks || (Array.isArray(deptData) ? deptData : []);
+          if (Array.isArray(deptTasks)) {
+            deptTasks = deptTasks.map((t) => ({
+              ...t,
+              createdAt: t?.createdAt || t?.dueDate || new Date().toISOString(),
+            }));
+          }
+          if (deptTasks && deptTasks.length > 0) {
+            console.debug("[TasksTab] using department tasks fallback");
+            setTasks(deptTasks);
+            return;
+          }
+        } catch (innerErr) {
+          console.warn("[TasksTab] department tasks fallback failed:", innerErr);
+        }
         // Fallback to department-specific sample tasks
         const samples = generateSampleTasks(normalized, user);
+        console.debug("[TasksTab] using fallback sample tasks:", samples.length);
         setTasks(samples);
       } else {
+        console.debug("[TasksTab] using API tasks");
         setTasks(received);
       }
     } catch (err) {
       console.error("Failed to load tasks:", err);
       // Fallback to department-specific sample tasks on error
-      const samples = generateSampleTasks(normalizeDepartment(department), user);
+      const dept = normalizeDepartment(department);
+      const samples = generateSampleTasks(dept, user);
+      console.debug("[TasksTab] error fallback sample tasks:", samples.length);
       setTasks(samples);
     } finally {
+      console.debug("[TasksTab] loading complete");
       setLoading(false);
     }
   };
