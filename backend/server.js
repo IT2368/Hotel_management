@@ -1,4 +1,5 @@
 import express from "express";
+import path from "path";
 import cors from "cors";
 import helmet from "helmet";
 import rateLimit from "express-rate-limit";
@@ -46,9 +47,11 @@ const limiter = rateLimit({
   standardHeaders: true,
   legacyHeaders: false,
 });
+// Static file serving for uploads (profile pictures, etc.)
+app.use("/uploads", express.static(path.join(process.cwd(), "uploads")));
 const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 100,
   message: {
     success: false,
     message: "Too many authentication attempts, please try again later",
@@ -86,6 +89,8 @@ app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/v1/admin", adminRoutes);
 app.use("/api/v1/notifications", notificationRoutes);
 app.use("/api/v1/staff", staffRoutes);
+// Backward compatibility: accept legacy non-versioned staff path
+app.use("/api/staff", staffRoutes);
 app.use("/api/v1/guests", guestRoutes);
 app.use("/api/v1/messages", messageRoutes);
 

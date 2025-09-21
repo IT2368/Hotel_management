@@ -109,6 +109,16 @@ export const staffService = {
     return response.data;
   },
 
+  // Upload current user's profile photo
+  uploadProfilePhoto: async (file) => {
+    const formData = new FormData();
+    formData.append('image', file);
+    const response = await api.post('/staff/profile/photo', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    return response.data;
+  },
+
   // Get colleagues
   getColleagues: async (params = {}) => {
     const response = await api.get('/staff/colleagues', { params });

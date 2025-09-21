@@ -24,14 +24,27 @@ import {
   validateChangePassword,
 } from "../middleware/validation.js";
 import { authorizeRoles } from "../middleware/roleAuth.js"; // <-- only this now
+import rateLimit from "express-rate-limit";
 
 const router = express.Router();
 
 // Public routes (no auth needed)
+// Per-email login rate limiter (separate from global auth limiter)
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10, // per email per 15 minutes
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req, res) => (req.body?.email?.toLowerCase?.() || req.ip),
+  message: {
+    success: false,
+    message: "Too many login attempts for this email, please try again later",
+  },
+});
 router.post("/register", validateRegistration, register);
 router.get("/check-invitation", checkInvitation);
 router.post("/register-with-invite", registerWithInvitation);
-router.post("/login", validateLogin, login);
+router.post("/login", loginLimiter, validateLogin, login);
 router.post("/verify-email", verifyEmail);
 router.post("/resend-otp", resendOTP);
 router.post("/forgot-password", forgotPassword);

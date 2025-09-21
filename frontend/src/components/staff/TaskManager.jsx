@@ -326,6 +326,58 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
     }
   };
 
+  const handleSaveTask = async (task) => {
+    try {
+      const payload = {
+        // Only include fields that backend accepts/updates
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        category: task.category,
+        location: task.location,
+        roomNumber: task.roomNumber,
+        estimatedDuration: task.estimatedDuration,
+        isUrgent: task.isUrgent,
+        requiresApproval: task.requiresApproval,
+        status: task.status,
+        // Include handoff fields if present
+        ...(task.handoffDepartment ? { handoffDepartment: task.handoffDepartment } : {}),
+        ...(task.handoffReason ? { handoffReason: task.handoffReason } : {}),
+      };
+
+      const response = await fetch(`/api/staff/tasks/${task._id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        console.error('Failed to save task changes');
+        return;
+      }
+
+      const data = await response.json();
+      const updated = data?.data || data; // formatResponse wrapper compatibility
+      const updatedTask = updated?.relatedTask ? updated.relatedTask : updated; // safety
+      const finalTask = updated?.task || updated?.updatedTask || updatedTask;
+
+      if (finalTask?._id) {
+        setTasks(prev => prev.map(t => (t._id === finalTask._id ? { ...t, ...finalTask } : t)));
+      } else if (updated?.data?.tasks) {
+        // In case endpoint returns paginated list (defensive)
+        setTasks(updated.data.tasks);
+      } else {
+        // Fallback: refresh from server
+        fetchTasks();
+      }
+    } catch (err) {
+      console.error('Error saving task changes:', err);
+    }
+  };
+
   const getStatusIcon = (status) => {
     switch (status) {
       case "pending":
@@ -463,6 +515,7 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
                 task={task}
                 onStatusChange={handleStatusChange}
                 onAcceptHandoff={handleAcceptHandoff}
+                onSave={handleSaveTask}
                 getStatusIcon={getStatusIcon}
                 getPriorityColor={getPriorityColor}
               />
@@ -470,14 +523,12 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
           )}
         </div>
       </div>
-
-
     </div>
   );
 }
 
 // Task Card Component
-function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcceptHandoff }) {
+function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcceptHandoff, onSave }) {
   const [showHandoffModal, setShowHandoffModal] = useState(false);
   const [handoffData, setHandoffData] = useState({ department: "", reason: "" });
 
@@ -546,16 +597,27 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
           <select
             value={task.status}
             onChange={(e) => handleStatusChange(e.target.value)}
-            className="px-3 py-1 text-sm border border-gray-300 dark:border-gray-700 rounded bg-white dark:bg-gray-900 text-gray-900 dark:text-gray-100 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+            aria-label="Task status"
+            className="px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
           >
             <option value="pending">Pending</option>
             <option value="process">Process</option>
             <option value="completed">Completed</option>
             <option value="handoff_pending">Handoff Pending</option>
           </select>
-          
-
         </div>
+      </div>
+
+      {/* Footer actions */}
+      <div className="mt-4 flex justify-end">
+        <button
+          onClick={() => onSave && onSave(task)}
+          className="px-4 py-2 text-sm rounded-md bg-amber-400 text-gray-900 font-semibold shadow-sm hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-400/70 transition duration-200"
+          title="Save Changes"
+          aria-label="Save task changes"
+        >
+          Save Changes
+        </button>
       </div>
 
       {/* Handoff Modal */}

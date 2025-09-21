@@ -1,6 +1,9 @@
 import express from "express";
 import { Message } from "../models/Message.js";
 import { authenticateToken } from "../middleware/auth.js";
+import { User } from "../models/User.js";
+import { authorizeRoles } from "../middleware/roleAuth.js";
+import NotificationService from "../services/notification/notificationService.js";
 
 const router = express.Router();
 
@@ -8,9 +11,17 @@ const router = express.Router();
 router.post('/', authenticateToken, async (req, res) => {
   try {
     const { type, priority, subject, message, department } = req.body;
+    if (!type || !subject || !message) {
+      return res.status(400).json({ message: 'type, subject and message are required' });
+    }
     
+    // Determine recipient: pick an approved manager
+    let manager = await User.findOne({ role: 'manager', isApproved: true });
+    const recipient = manager?._id || null;
+
     const newMessage = new Message({
       sender: req.user._id,
+      recipient,
       type,
       priority,
       subject,
@@ -21,8 +32,28 @@ router.post('/', authenticateToken, async (req, res) => {
 
     await newMessage.save();
     
-    // Notify manager about the new message (you can implement this)
-    // await notifyManager(newMessage);
+    // Notify manager about the new message
+    if (recipient) {
+      try {
+        await NotificationService.sendNotification({
+          userId: recipient,
+          userType: 'manager',
+          type: 'staff_alert',
+          title: `New staff message: ${subject}`,
+          message: message.substring(0, 200),
+          channel: 'inApp',
+          priority: priority || 'medium',
+          metadata: {
+            fromUserId: req.user._id.toString(),
+            department,
+            messageId: newMessage._id.toString(),
+          },
+          actionUrl: `/messages/${newMessage._id}`,
+        });
+      } catch (notifyErr) {
+        console.error('Manager notification failed:', notifyErr);
+      }
+    }
     
     res.status(201).json(newMessage);
   } catch (error) {

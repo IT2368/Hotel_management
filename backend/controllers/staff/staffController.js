@@ -45,6 +45,11 @@ export const updateMyProfile = async (req, res) => {
     Object.assign(profile, updateData);
     await profile.save();
 
+    // If a profilePicture URL was provided, upsert it to the base User as well
+    if (typeof updateData.profilePicture === "string") {
+      await User.findByIdAndUpdate(userId, { profilePicture: updateData.profilePicture });
+    }
+
     const updatedProfile = await StaffProfile.findOne({ userId })
       .populate("userId", "name email phone")
       .populate("assignedRooms", "roomNumber type");

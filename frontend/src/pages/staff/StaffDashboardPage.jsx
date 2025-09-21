@@ -1,8 +1,16 @@
-import { useContext, useState, useEffect } from "react";
+import { useContext, useState, useEffect, useRef } from "react";
+import PropTypes from 'prop-types';
 import { AuthContext } from "../../context/AuthContext";
-import useAuth from "../../hooks/useAuth";
-import { sendMessage, getMessages } from "../../services/messageService";
+import { useAuth } from "../../hooks/useAuth";
 import staffService from "../../services/staffService";
+
+// Department background images
+const departmentBackgrounds = {
+  kitchen: 'url("https://images.unsplash.com/photo-1600891964092-4316c288032e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80")',
+  cleaning: 'url("https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80")',
+  service: 'url("https://images.unsplash.com/photo-1566073771259-6a8506099945?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80")',
+  maintenance: 'url("https://images.unsplash.com/photo-1600607688969-a5bfcd646154?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=2070&q=80")',
+};
 
 // Module-scope department normalizer so all components can use it
 function normalizeDepartment(value) {
@@ -22,115 +30,281 @@ function normalizeDepartment(value) {
   return map[key] || key || "service";
 }
 
-// Simple icon components as fallbacks
-const Bell = () => <span className="text-xl">🔔</span>;
-const Clock = () => <span className="text-xl">⏰</span>;
-const CheckCircle = () => <span className="text-xl">✅</span>;
-const AlertTriangle = () => <span className="text-xl">⚠️</span>;
-const Users = () => <span className="text-xl">👥</span>;
-const Calendar = () => <span className="text-xl">📅</span>;
-const Settings = () => <span className="text-xl">⚙️</span>;
+// TaskCard component for displaying individual tasks
+function TaskCard({ task, onStatusChange, onSave }) {
+  const [isEditing, setIsEditing] = useState(false);
+  const [taskData, setTaskData] = useState({ ...task });
 
-export default function StaffDashboardPage() {
+  const handleSave = () => {
+    onSave?.(task.id, taskData);
+    setIsEditing(false);
+  };
+
+  if (!task) return null;
+
+  return (
+    <div className="task-card bg-white dark:bg-gray-800 rounded-lg shadow-md p-4 mb-4">
+      {isEditing ? (
+        <div className="edit-mode space-y-2">
+          <input
+            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+            value={taskData.title}
+            onChange={(e) => setTaskData({...taskData, title: e.target.value})}
+          />
+          <textarea
+            className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+            value={taskData.description}
+            onChange={(e) => setTaskData({...taskData, description: e.target.value})}
+          />
+          <div className="flex space-x-2">
+            <button 
+              onClick={handleSave}
+              className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+              Save
+            </button>
+            <button 
+              onClick={() => setIsEditing(false)}
+              className="px-3 py-1 bg-gray-300 text-gray-800 rounded hover:bg-gray-400"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      ) : (
+        <div className="view-mode">
+          <h3 className="text-lg font-semibold dark:text-white">{task.title}</h3>
+          <p className="text-gray-600 dark:text-gray-300 mb-2">{task.description}</p>
+          <div className="flex space-x-2">
+            <button 
+              onClick={() => setIsEditing(true)}
+              className="px-2 py-1 bg-yellow-500 text-white text-sm rounded hover:bg-yellow-600"
+            >
+              Edit
+            </button>
+            <button 
+              onClick={() => onStatusChange?.(task.id, 'completed')}
+              className="px-2 py-1 bg-green-500 text-white text-sm rounded hover:bg-green-600"
+            >
+              Complete
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+TaskCard.propTypes = {
+  task: PropTypes.object,
+  onStatusChange: PropTypes.func,
+  onSave: PropTypes.func
+};
+
+// Helper function to generate sample tasks
+function generateSampleTasks(department, user) {
+  const baseTasks = {
+    kitchen: [
+      {
+        id: 'task-1',
+        title: 'Prepare breakfast buffet',
+        description: 'Set up and prepare all items for the breakfast buffet',
+        status: 'pending',
+        priority: 'high',
+        dueDate: '2023-11-15',
+        assignedTo: user?.id || 'unknown'
+      },
+      {
+        id: 'task-2',
+        title: 'Inventory check',
+        description: 'Check and restock kitchen inventory',
+        status: 'in-progress',
+        priority: 'medium',
+        dueDate: '2023-11-16',
+        assignedTo: user?.id || 'unknown'
+      }
+    ],
+    maintenance: [
+      {
+        id: 'task-3',
+        title: 'Fix AC in room 205',
+        description: 'Guest reported AC not working properly',
+        status: 'pending',
+        priority: 'high',
+        dueDate: '2023-11-14',
+        assignedTo: user?.id || 'unknown'
+      }
+    ],
+    cleaning: [
+      {
+        id: 'task-4',
+        title: 'Clean room 301',
+        description: 'Thorough cleaning after checkout',
+        status: 'pending',
+        priority: 'high',
+        dueDate: '2023-11-14',
+        assignedTo: user?.id || 'unknown'
+      }
+    ],
+    service: [
+      {
+        id: 'task-5',
+        title: 'Welcome new guest',
+        description: 'Mr. Smith checking in at 2 PM',
+        status: 'pending',
+        priority: 'medium',
+        dueDate: '2023-11-14',
+        assignedTo: user?.id || 'unknown'
+      }
+    ]
+  };
+
+  return baseTasks[department?.toLowerCase()] || [];
+}
+
+const tabs = [
+  { id: "overview", label: "Overview", icon: "📊" },
+  { id: "tasks", label: "My Tasks", icon: "📋" },
+  { id: "contact", label: "Contact Manager", icon: "💬" },
+  { id: "notifications", label: "Notifications", icon: "🔔" }
+];
+
+function StaffDashboardPage() {
   const { user } = useContext(AuthContext);
-  const { logout } = useAuth();
+  const { logout, checkAuth } = useAuth();
   const [activeTab, setActiveTab] = useState("overview");
+  const [tasks, setTasks] = useState([]);
   const [notifications, setNotifications] = useState([]);
-  const [urgentAlerts, setUrgentAlerts] = useState([]);
   const [taskStats, setTaskStats] = useState({});
   const [loading, setLoading] = useState(true);
-
-  // Open tab from query string if provided (e.g., /staff/dashboard?tab=tasks)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    const tabFromUrl = params.get("tab");
-    if (tabFromUrl) {
-      setActiveTab(tabFromUrl);
-    }
-  }, []);
-
+  const [error, setError] = useState(null);
+  const [profileMenuOpen, setProfileMenuOpen] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef(null);
+  
   // Get department from user profile with role-based fallback mapping
   const roleDeptMap = {
     chef: "kitchen",
-    cheff: "kitchen", // common misspelling
+    cheff: "kitchen",
     kitchen: "kitchen",
     maintenance: "maintenance",
-    maintanence: "maintenance", // common misspelling
+    maintanence: "maintenance",
     service: "service",
     cleaning: "cleaning",
     housekeeping: "cleaning",
   };
-  const inferredDept = roleDeptMap[(user?.staffProfile?.position || user?.role || "").toLowerCase()];
-  // Get department from user profile with multiple fallback checks
-  const department = user?.staffProfile?.department || user?.department || inferredDept || "service";
-  // Note: normalization available at module scope for reuse
   
   const departmentConfig = {
     maintenance: {
       name: "Maintenance",
       color: "blue",
       icon: "🔧",
-      description: "Equipment repair, facility maintenance, and technical support",
-      backgroundImage: "https://images.unsplash.com/photo-1581578731548-c64695cc6952?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
+      description: "Equipment repair, facility maintenance, and technical support"
     },
     kitchen: {
       name: "Kitchen",
       color: "orange",
       icon: "👨‍🍳",
-      description: "Food preparation, cooking, and kitchen operations",
-      backgroundImage: "https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
+      description: "Food preparation, cooking, and kitchen operations"
     },
     service: {
       name: "Service",
       color: "green",
       icon: "👔",
-      description: "Guest services, concierge, and customer support",
-      backgroundImage: "https://images.unsplash.com/photo-1564501049412-61c2a3083791?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
+      description: "Guest services, concierge, and customer support"
     },
     cleaning: {
       name: "Cleaning",
       color: "purple",
       icon: "🧹",
-      description: "Room cleaning, laundry, and facility maintenance",
-      backgroundImage: "https://images.unsplash.com/photo-1558618666-fcd25c85cd64?ixlib=rb-4.0.3&auto=format&fit=crop&w=1920&q=80"
+      description: "Room cleaning, laundry, and facility maintenance"
     }
   };
-
+  
+  // Get user's department
+  const inferredDept = roleDeptMap[(user?.staffProfile?.position || user?.role || "").toLowerCase()];
+  const department = user?.staffProfile?.department || user?.department || inferredDept || "service";
+  
   // Ensure we have a valid department configuration
   const currentDept = departmentConfig[department] || departmentConfig.service;
+  
+  // Get background image based on department
+  const normalizedDept = normalizeDepartment(department);
+  const departmentBg = departmentBackgrounds[normalizedDept] || departmentBackgrounds.cleaning;
 
+  // Load tasks and initial data
   useEffect(() => {
-    fetchDashboardData();
-  }, []);
+    const loadData = async () => {
+      setLoading(true);
+      try {
+        // In a real app, you would fetch tasks from an API
+        const sampleTasks = generateSampleTasks(department, user);
+        setTasks(sampleTasks);
+        
+        // Set some sample notifications
+        setNotifications([
+          { id: 1, message: 'New task assigned: Prepare breakfast buffet', read: false },
+          { id: 2, message: 'Team meeting at 2:00 PM', read: true },
+        ]);
+        
+        // Set sample task stats
+        setTaskStats({
+          total: sampleTasks.length,
+          completed: sampleTasks.filter(t => t.status === 'completed').length,
+          inProgress: sampleTasks.filter(t => t.status === 'in-progress').length,
+          pending: sampleTasks.filter(t => t.status === 'pending').length,
+        });
+        
+      } catch (err) {
+        setError(err);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Force re-render when user changes (important for switching between staff members)
-  useEffect(() => {
-    if (user) {
-      console.log("User changed:", user);
-      console.log("Staff Profile:", user.staffProfile);
-      console.log("Department:", department);
-    }
+    loadData();
   }, [user, department]);
 
-  const fetchDashboardData = async () => {
+  const handleStatusChange = (taskId, newStatus) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId ? { ...task, status: newStatus } : task
+    ));
+  };
+
+  const handleSaveTask = (taskId, updates) => {
+    setTasks(tasks.map(task => 
+      task.id === taskId ? { ...task, ...updates } : task
+    ));
+  };
+  
+  const handleLogout = async () => {
     try {
-      setLoading(true);
-      // Fetch notifications, alerts, and stats
-      // This would be implemented with your API calls
-      setLoading(false);
+      await logout();
+      // Redirect handled by auth context
     } catch (error) {
-      console.error("Error fetching dashboard data:", error);
-      setLoading(false);
+      console.error('Logout failed:', error);
+    }
+  };
+  
+  const handleFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    try {
+      setUploadingPhoto(true);
+      const formData = new FormData();
+      formData.append('image', file);
+      
+      await staffService.uploadProfilePhoto(formData);
+      await checkAuth(); // Refresh user data
+    } catch (error) {
+      console.error('Error uploading profile photo:', error);
+    } finally {
+      setUploadingPhoto(false);
     }
   };
 
-  const tabs = [
-    { id: "overview", label: "Overview", icon: "📊" },
-    { id: "tasks", label: "My Tasks", icon: "📋" },
-    { id: "contact", label: "Contact Manager", icon: "💬" },
-    { id: "notifications", label: "Notifications", icon: "🔔" }
-  ];
-
+  // Loading state
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
@@ -141,1465 +315,296 @@ export default function StaffDashboardPage() {
       </div>
     );
   }
-
-  return (
-    <div className="min-h-screen bg-gray-100 dark:bg-gray-900 text-gray-800 dark:text-gray-200">
-      {/* Header with Department Background */}
-      <header className="relative overflow-hidden shadow-lg border-b border-white/20 h-40 md:h-48">
-        {/* Background image layer */}
-        <div
-          className="absolute inset-0 bg-center bg-cover"
-          style={{ backgroundImage: `url(${currentDept.backgroundImage})` }}
-        />
-        {/* Overlay for readability */}
-        <div className="absolute inset-0 bg-white/80 dark:bg-gray-900/70 backdrop-blur-sm" />
-        <div className="relative h-full mx-auto px-4 py-4 flex justify-between items-end">
-          <div className="flex items-center space-x-4">
-            <div className={`p-3 rounded-lg bg-${currentDept.color}-100 dark:bg-gray-700`}>
-              <span className="text-2xl">{currentDept.icon}</span>
-            </div>
-            <div>
-              <h1 className="text-2xl font-bold text-gray-800 dark:text-gray-100">
-                Valdor Hotel - {currentDept.name} Department
-              </h1>
-              <p className="text-gray-600 dark:text-gray-300 text-sm">Welcome back! Here's what's happening in {currentDept.name.toLowerCase()} today.</p>
-            </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Bell />
-              {urgentAlerts.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center">
-                  {urgentAlerts.length}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={logout}
-              className="group relative px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold overflow-hidden"
-            >
-              <span className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-              <span className="relative flex items-center space-x-2">
-                <span>🔐</span>
-                <span>Logout</span>
-              </span>
-            </button>
-          </div>
+  
+  // Error state
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-900 flex items-center justify-center">
+        <div className="text-center text-red-500 p-4 bg-red-50 dark:bg-red-900/20 rounded-lg">
+          <p>Error loading dashboard: {error.message}</p>
+          <button 
+            onClick={() => window.location.reload()} 
+            className="mt-2 px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+          >
+            Retry
+          </button>
         </div>
-      </header>
+      </div>
+    );
+  }
 
-      <div className="flex">
-        {/* Sidebar */}
-        <aside className="w-64 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-r border-white/30 dark:border-gray-800/50 h-screen px-6 py-8 shadow-xl">
-          <div className="mb-8">
-            <div className="flex items-center space-x-3 mb-4">
-              <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center">
-                <span className="text-indigo-600 dark:text-indigo-300 font-semibold">
-                  {user?.name?.charAt(0)}
-                </span>
+  // Render tab content based on active tab
+  const renderTabContent = () => {
+    switch (activeTab) {
+      case 'tasks':
+        return (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">My Tasks</h2>
+            {tasks.length === 0 ? (
+              <p className="text-gray-600 dark:text-gray-300">No tasks assigned.</p>
+            ) : (
+              tasks.map(task => (
+                <TaskCard
+                  key={task.id}
+                  task={task}
+                  onStatusChange={handleStatusChange}
+                  onSave={handleSaveTask}
+                />
+              ))
+            )}
+          </div>
+        );
+      case 'contact':
+        return (
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Contact Manager</h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              Need help? Contact your manager for assistance.
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Subject
+                </label>
+                <input
+                  type="text"
+                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                  placeholder="Enter subject"
+                />
               </div>
               <div>
-                <p className="font-semibold text-gray-800 dark:text-gray-100">{user?.name}</p>
-                <p className="text-sm text-gray-600 dark:text-gray-400">{user?.staffProfile?.position}</p>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Message
+                </label>
+                <textarea
+                  className="w-full p-2 border rounded dark:bg-gray-700 dark:border-gray-600"
+                  rows={4}
+                  placeholder="Type your message here..."
+                ></textarea>
+              </div>
+              <button className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                Send Message
+              </button>
+            </div>
+          </div>
+        );
+      case 'notifications':
+        return (
+          <div className="space-y-4">
+            <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Notifications</h2>
+            {notifications.length === 0 ? (
+              <p className="text-gray-600 dark:text-gray-300">No notifications.</p>
+            ) : (
+              <div className="space-y-2">
+                {notifications.map(notification => (
+                  <div 
+                    key={notification.id}
+                    className={`p-4 rounded-lg ${
+                      notification.read 
+                        ? 'bg-gray-100 dark:bg-gray-800' 
+                        : 'bg-blue-50 dark:bg-blue-900/30'
+                    }`}
+                  >
+                    <p className="text-gray-800 dark:text-gray-200">{notification.message}</p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                      {new Date().toLocaleDateString()}
+                    </p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        );
+      case 'overview':
+      default:
+        return (
+          <div className="space-y-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-4">Welcome, {user?.name || 'User'}!</h2>
+              <p className="text-gray-600 dark:text-gray-300">
+                You are logged in as {user?.role || 'staff'} in the {currentDept.name} department.
+              </p>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <h3 className="font-semibold text-gray-700 dark:text-gray-200">Total Tasks</h3>
+                <p className="text-2xl font-bold text-blue-500">{taskStats.total || 0}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <h3 className="font-semibold text-gray-700 dark:text-gray-200">Completed</h3>
+                <p className="text-2xl font-bold text-green-500">{taskStats.completed || 0}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <h3 className="font-semibold text-gray-700 dark:text-gray-200">In Progress</h3>
+                <p className="text-2xl font-bold text-yellow-500">{taskStats.inProgress || 0}</p>
+              </div>
+              <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-4">
+                <h3 className="font-semibold text-gray-700 dark:text-gray-200">Pending</h3>
+                <p className="text-2xl font-bold text-red-500">{taskStats.pending || 0}</p>
+              </div>
+            </div>
+            
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Upcoming Tasks</h3>
+              {tasks.length === 0 ? (
+                <p className="text-gray-600 dark:text-gray-300">No upcoming tasks.</p>
+              ) : (
+                <div className="space-y-2">
+                  {tasks.slice(0, 3).map(task => (
+                    <div key={task.id} className="p-3 border rounded-lg hover:bg-gray-50 dark:hover:bg-gray-700/50">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium text-gray-800 dark:text-gray-200">{task.title}</h4>
+                          <p className="text-sm text-gray-600 dark:text-gray-400">{task.description}</p>
+                        </div>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          task.status === 'completed' 
+                            ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' 
+                            : task.status === 'in-progress'
+                            ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
+                            : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                        }`}>
+                          {task.status.replace('-', ' ')}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+              
+              {tasks.length > 3 && (
+                <button 
+                  onClick={() => setActiveTab('tasks')}
+                  className="mt-4 text-sm text-blue-500 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+                >
+                  View all tasks →
+                </button>
+              )}
+            </div>
+          </div>
+        );
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-50 dark:bg-gray-900 relative">
+      {/* Department Background */}
+      <div 
+        className="fixed inset-0 -z-10 opacity-20 dark:opacity-10 transition-opacity duration-500"
+        style={{ 
+          backgroundImage: departmentBg,
+          backgroundAttachment: 'fixed',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center'
+        }}
+      />
+      
+      {/* Main Content */}
+      <div className="relative z-10">
+        {/* Header */}
+        <header className="bg-white dark:bg-gray-800 shadow-sm">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
+            <div className="flex justify-between items-center">
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
+                {currentDept.icon} {currentDept.name} Dashboard
+              </h1>
+              
+              <div className="relative">
+                <button 
+                  onClick={() => setProfileMenuOpen(!profileMenuOpen)}
+                  className="flex items-center space-x-2 focus:outline-none"
+                >
+                  <div className="relative">
+                    <img 
+                      className="h-10 w-10 rounded-full"
+                      src={user?.profileImage || `https://ui-avatars.com/api/?name=${encodeURIComponent(user?.name || 'U')}&background=random`}
+                      alt={user?.name || 'User'}
+                    />
+                    {uploadingPhoto && (
+                      <div className="absolute inset-0 bg-black bg-opacity-50 rounded-full flex items-center justify-center">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                      </div>
+                    )}
+                  </div>
+                  <span className="text-gray-700 dark:text-gray-200">
+                    {user?.name || 'User'}
+                  </span>
+                  <svg 
+                    className={`h-5 w-5 text-gray-500 transition-transform ${profileMenuOpen ? 'transform rotate-180' : ''}`} 
+                    xmlns="http://www.w3.org/2000/svg" 
+                    viewBox="0 0 20 20" 
+                    fill="currentColor"
+                  >
+                    <path fillRule="evenodd" d="M5.293 7.293a1 1 0 011.414 0L10 10.586l3.293-3.293a1 1 0 111.414 1.414l-4 4a1 1 0 01-1.414 0l-4-4a1 1 0 010-1.414z" clipRule="evenodd" />
+                  </svg>
+                </button>
+                
+                {/* Profile Dropdown */}
+                {profileMenuOpen && (
+                  <div className="origin-top-right absolute right-0 mt-2 w-48 rounded-md shadow-lg bg-white dark:bg-gray-800 ring-1 ring-black ring-opacity-5 focus:outline-none z-50">
+                    <div className="py-1" role="none">
+                      <div className="px-4 py-2 text-sm text-gray-700 dark:text-gray-200 border-b border-gray-100 dark:border-gray-700">
+                        Signed in as <span className="font-medium">{user?.email || 'user@example.com'}</span>
+                      </div>
+                      
+                      <label className="block px-4 py-2 text-sm text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-700 cursor-pointer">
+                        Change Photo
+                        <input 
+                          type="file" 
+                          ref={fileInputRef}
+                          onChange={handleFileChange}
+                          accept="image/*"
+                          className="hidden"
+                        />
+                      </label>
+                      
+                      <button
+                        onClick={handleLogout}
+                        className="w-full text-left px-4 py-2 text-sm text-red-600 dark:text-red-400 hover:bg-gray-100 dark:hover:bg-gray-700"
+                      >
+                        Sign out
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
-
-          <nav className="space-y-3">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`group w-full flex items-center space-x-4 px-5 py-4 rounded-xl text-left transition-all duration-300 transform hover:scale-105 ${
-                  activeTab === tab.id
-                    ? "bg-gradient-to-r from-indigo-500 to-purple-600 text-white shadow-lg border border-indigo-400"
-                    : "text-gray-700 hover:bg-white/60 dark:text-gray-200 dark:hover:bg-gray-800/60 backdrop-blur-sm border border-transparent hover:border-white/40 hover:shadow-md"
-                }`}
-              >
-                <div className={`p-2 rounded-lg transition-all duration-300 ${
-                  activeTab === tab.id 
-                    ? "bg-white/20 shadow-inner" 
-                    : "bg-gray-100/50 dark:bg-gray-700/50 group-hover:bg-white/70 dark:group-hover:bg-gray-600/70"
-                }`}>
-                  <span className="text-xl">{tab.icon}</span>
-                </div>
-                <span className="font-semibold text-base">{tab.label}</span>
-                {activeTab === tab.id && (
-                  <div className="ml-auto w-2 h-2 bg-white rounded-full animate-pulse"></div>
-                )}
-              </button>
-            ))}
-          </nav>
-        </aside>
-
-        {/* Main Content */}
-        <main className="flex-1 p-8">
-          <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 dark:border-gray-800/50 p-6">
-            {activeTab === "overview" && <OverviewTab user={user} department={department} setActiveTab={setActiveTab} />}
-            {activeTab === "tasks" && <TasksTab user={user} department={department} />}
-            {activeTab === "contact" && <ContactManagerTab user={user} department={department} />}
-            {activeTab === "notifications" && <NotificationsTab user={user} />}
+          
+          {/* Tabs */}
+          <div className="border-b border-gray-200 dark:border-gray-700">
+            <nav className="-mb-px flex max-w-7xl mx-auto px-4 sm:px-6 lg:px-8" aria-label="Tabs">
+              {tabs.map((tab) => (
+                <button
+                  key={tab.id}
+                  onClick={() => setActiveTab(tab.id)}
+                  className={`${
+                    activeTab === tab.id
+                      ? 'border-blue-500 text-blue-600 dark:text-blue-400 dark:border-blue-400'
+                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-200 dark:hover:border-gray-500'
+                  } whitespace-nowrap py-4 px-4 border-b-2 font-medium text-sm flex items-center space-x-2`}
+                >
+                  <span>{tab.icon}</span>
+                  <span>{tab.label}</span>
+                </button>
+              ))}
+            </nav>
           </div>
+        </header>
+        
+        {/* Main Content */}
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+          {renderTabContent()}
         </main>
       </div>
     </div>
   );
 }
 
-// Overview Tab Component
-function OverviewTab({ user, department, setActiveTab }) {
-  const [taskStats, setTaskStats] = useState({});
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchTaskStats();
-  }, [department]);
-
-  const fetchTaskStats = async () => {
-    try {
-      setLoading(true);
-      // Fetch task statistics for the department via API client (baseURL=/api/v1)
-      const data = await staffService.getTaskStats({ department });
-      setTaskStats(data?.data || data || {});
-      setLoading(false);
-    } catch (error) {
-      console.error("Error fetching task stats:", error);
-      // Fallback to mock data
-      setTaskStats({
-        totalTasks: 10,
-        pendingTasks: 8,
-        completedTasks: 2,
-        urgentTasks: 3
-      });
-      setLoading(false);
-    }
-  };
-
-  const stats = [
-    {
-      title: "Total Tasks",
-      value: taskStats.totalTasks || "10",
-      change: "+2",
-      icon: CheckCircle,
-      color: "green"
-    },
-    {
-      title: "Pending Tasks",
-      value: taskStats.pendingTasks || "8",
-      change: "-1",
-      icon: Clock,
-      color: "yellow"
-    },
-    {
-      title: "Urgent Tasks",
-      value: taskStats.urgentTasks || "3",
-      change: "+1",
-      icon: AlertTriangle,
-      color: "red"
-    },
-    {
-      title: "Completed Today",
-      value: taskStats.completedTasks || "2",
-      change: "+2",
-      icon: CheckCircle,
-      color: "blue"
-    }
-  ];
-
-  return (
-    <div className="space-y-8 relative">
-      {/* Clean background (removed neon gradients) */}
-
-      {/* Clean Welcome Header */}
-      <div className="relative">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              Welcome back, {user?.name?.split(" ")[0]}!
-            </h2>
-            <div className="text-2xl">👋</div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-            <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">
-              {department} Department Active
-            </p>
-          </div>
-        </div>
-        <p className="text-gray-600 dark:text-gray-300 mt-2 text-lg font-medium">
-          {`Here's what's happening in ${String(department).toLowerCase()} today.`}
-        </p>
-      </div>
-
-      {/* Stats Grid - dark rounded cards layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        {stats.map((stat, index) => (
-          <div 
-            key={stat.title} 
-            className="relative"
-            style={{ animationDelay: `${index * 150}ms` }}
-          >
-            <div className="relative rounded-2xl bg-gray-900/80 dark:bg-gray-800 text-gray-100 border border-gray-700 shadow-sm p-6">
-              <div className="flex items-start justify-between">
-                <div className="space-y-1">
-                  <p className="text-xs font-semibold text-gray-400 tracking-widest uppercase">{stat.title}</p>
-                  <p className="text-4xl font-extrabold tracking-tight">{stat.value}</p>
-                </div>
-                <div className="shrink-0 rounded-xl bg-gray-700/70 p-3">
-                  <stat.icon />
-                </div>
-              </div>
-              <div className="mt-4 flex items-center gap-3">
-                <span className="inline-flex items-center rounded-full bg-gray-700/70 px-2.5 py-0.5 text-xs font-semibold text-gray-200">
-                  {stat.change}
-                </span>
-                <span className="text-xs text-gray-400">from yesterday</span>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Enhanced Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div className="group relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-          <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden">
-            <div className="relative bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 p-6 border-b border-white/20 dark:border-gray-700/30">
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-xl blur opacity-50 animate-pulse"></div>
-                  <div className="relative p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg">
-                    <span className="text-2xl filter drop-shadow-sm">⚡</span>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
-                    Quick Actions
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Navigate to key sections</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <button onClick={() => setActiveTab("tasks")} className="group w-full text-left p-5 rounded-2xl border-2 border-transparent bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/30 dark:to-indigo-900/30 hover:border-blue-400/50 hover:shadow-2xl backdrop-blur-sm transition-all duration-500 transform hover:scale-105 hover:-translate-y-1">
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-2xl blur opacity-30 animate-pulse"></div>
-                    <div className="relative p-3 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-2xl shadow-xl group-hover:rotate-12 transition-transform duration-500">
-                      <span className="text-2xl filter drop-shadow-sm">📋</span>
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <span className="font-bold text-gray-800 dark:text-gray-200 text-lg">View My Tasks</span>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Manage your assignments</p>
-                  </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-2">
-                    <span className="text-2xl text-blue-500 animate-bounce">→</span>
-                  </div>
-                </div>
-              </button>
-              
-              <button onClick={() => setActiveTab("contact")} className="group w-full text-left p-5 rounded-2xl border-2 border-transparent bg-gradient-to-r from-green-50/80 to-emerald-50/80 dark:from-green-900/30 dark:to-emerald-900/30 hover:border-green-400/50 hover:shadow-2xl backdrop-blur-sm transition-all duration-500 transform hover:scale-105 hover:-translate-y-1">
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-green-400 to-emerald-400 rounded-2xl blur opacity-30 animate-pulse"></div>
-                    <div className="relative p-3 bg-gradient-to-br from-green-500 to-emerald-600 rounded-2xl shadow-xl group-hover:rotate-12 transition-transform duration-500">
-                      <span className="text-2xl filter drop-shadow-sm">💬</span>
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <span className="font-bold text-gray-800 dark:text-gray-200 text-lg">Contact Manager</span>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">Send messages & requests</p>
-                  </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-2">
-                    <span className="text-2xl text-green-500 animate-bounce">→</span>
-                  </div>
-                </div>
-              </button>
-              
-              <button onClick={() => setActiveTab("notifications")} className="group w-full text-left p-5 rounded-2xl border-2 border-transparent bg-gradient-to-r from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 hover:border-purple-400/50 hover:shadow-2xl backdrop-blur-sm transition-all duration-500 transform hover:scale-105 hover:-translate-y-1">
-                <div className="flex items-center space-x-4">
-                  <div className="relative">
-                    <div className="absolute inset-0 bg-gradient-to-r from-purple-400 to-pink-400 rounded-2xl blur opacity-30 animate-pulse"></div>
-                    <div className="relative p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-2xl shadow-xl group-hover:rotate-12 transition-transform duration-500">
-                      <span className="text-2xl filter drop-shadow-sm">🔔</span>
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    <span className="font-bold text-gray-800 dark:text-gray-200 text-lg">Check Notifications</span>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">View updates & alerts</p>
-                  </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-all duration-300 transform group-hover:translate-x-2">
-                    <span className="text-2xl text-purple-500 animate-bounce">→</span>
-                  </div>
-                </div>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        <div className="group relative">
-          <div className="absolute -inset-1 bg-gradient-to-r from-cyan-600 via-teal-600 to-green-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-          <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden">
-            <div className="relative bg-gradient-to-r from-teal-500/10 via-cyan-500/10 to-green-500/10 p-6 border-b border-white/20 dark:border-gray-700/30">
-              <div className="flex items-center space-x-3">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-teal-400 to-cyan-400 rounded-xl blur opacity-50 animate-pulse"></div>
-                  <div className="relative p-3 bg-gradient-to-r from-teal-500 to-cyan-600 rounded-xl shadow-lg">
-                    <span className="text-2xl filter drop-shadow-sm">📈</span>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
-                    Recent Activity
-                  </h3>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">Latest updates</p>
-                </div>
-              </div>
-            </div>
-            <div className="p-6 space-y-4">
-              <div className="group flex items-center space-x-4 p-4 rounded-2xl hover:bg-gradient-to-r hover:from-green-50/50 hover:to-emerald-50/50 dark:hover:from-green-900/20 dark:hover:to-emerald-900/20 transition-all duration-300">
-                <div className="relative">
-                  <div className="w-3 h-3 bg-gradient-to-r from-green-400 to-emerald-500 rounded-full animate-pulse shadow-lg"></div>
-                  <div className="absolute inset-0 bg-green-400 rounded-full animate-ping opacity-30"></div>
-                </div>
-                <div className="flex-1">
-                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">Task "Fix Room 205 AC" completed</span>
-                  <span className="block text-xs text-gray-400 font-medium">2 hours ago</span>
-                </div>
-              </div>
-              <div className="group flex items-center space-x-4 p-4 rounded-2xl hover:bg-gradient-to-r hover:from-blue-50/50 hover:to-indigo-50/50 dark:hover:from-blue-900/20 dark:hover:to-indigo-900/20 transition-all duration-300">
-                <div className="relative">
-                  <div className="w-3 h-3 bg-gradient-to-r from-blue-400 to-indigo-500 rounded-full animate-pulse shadow-lg"></div>
-                  <div className="absolute inset-0 bg-blue-400 rounded-full animate-ping opacity-30"></div>
-                </div>
-                <div className="flex-1">
-                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">New task assigned: "Kitchen equipment maintenance"</span>
-                  <span className="block text-xs text-gray-400 font-medium">4 hours ago</span>
-                </div>
-              </div>
-              <div className="group flex items-center space-x-4 p-4 rounded-2xl hover:bg-gradient-to-r hover:from-yellow-50/50 hover:to-amber-50/50 dark:hover:from-yellow-900/20 dark:hover:to-amber-900/20 transition-all duration-300">
-                <div className="relative">
-                  <div className="w-3 h-3 bg-gradient-to-r from-yellow-400 to-amber-500 rounded-full animate-pulse shadow-lg"></div>
-                  <div className="absolute inset-0 bg-yellow-400 rounded-full animate-ping opacity-30"></div>
-                </div>
-                <div className="flex-1">
-                  <span className="text-sm font-semibold text-gray-600 dark:text-gray-300">Schedule updated for next week</span>
-                  <span className="block text-xs text-gray-400 font-medium">1 day ago</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Tasks Tab Component
-function TasksTab({ user, department }) {
-  const [activeTaskView, setActiveTaskView] = useState("total");
-  const [tasks, setTasks] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetchTasksFromApi();
-  }, [department, user]);
-
-  const fetchTasksFromApi = async () => {
-    try {
-      setLoading(true);
-      // Load tasks for the current department; backend route: GET /api/v1/staff/tasks
-      const normalized = normalizeDepartment(department);
-      // Prefer fetching tasks assigned to the current user. Backend route: GET /api/v1/staff/tasks/my
-      // Include department as a filter if your backend supports it; otherwise it will be ignored safely.
-      const data = await staffService.getMyTasks({ department: normalized });
-      let received = data?.data?.tasks || data?.tasks || (Array.isArray(data) ? data : []);
-      // Ensure minimum fields exist for rendering (createdAt used in TaskCard)
-      if (Array.isArray(received)) {
-        received = received.map((t) => ({
-          ...t,
-          createdAt: t?.createdAt || t?.dueDate || new Date().toISOString(),
-        }));
-      }
-      console.debug("[TasksTab] API tasks received:", Array.isArray(received) ? received.length : typeof received);
-      if (!received || received.length === 0) {
-        // Attempt department-wide tasks as a fallback in case assignments don't match the current user
-        try {
-          const deptData = await staffService.getTasks({ department: normalized });
-          let deptTasks = deptData?.data?.tasks || deptData?.tasks || (Array.isArray(deptData) ? deptData : []);
-          if (Array.isArray(deptTasks)) {
-            deptTasks = deptTasks.map((t) => ({
-              ...t,
-              createdAt: t?.createdAt || t?.dueDate || new Date().toISOString(),
-            }));
-          }
-          if (deptTasks && deptTasks.length > 0) {
-            console.debug("[TasksTab] using department tasks fallback");
-            setTasks(deptTasks);
-            return;
-          }
-        } catch (innerErr) {
-          console.warn("[TasksTab] department tasks fallback failed:", innerErr);
-        }
-        // Fallback to department-specific sample tasks
-        const samples = generateSampleTasks(normalized, user);
-        console.debug("[TasksTab] using fallback sample tasks:", samples.length);
-        setTasks(samples);
-      } else {
-        console.debug("[TasksTab] using API tasks");
-        setTasks(received);
-      }
-    } catch (err) {
-      console.error("Failed to load tasks:", err);
-      // Fallback to department-specific sample tasks on error
-      const dept = normalizeDepartment(department);
-      const samples = generateSampleTasks(dept, user);
-      console.debug("[TasksTab] error fallback sample tasks:", samples.length);
-      setTasks(samples);
-    } finally {
-      console.debug("[TasksTab] loading complete");
-      setLoading(false);
-    }
-  };
-
-  const getFilteredTasks = () => {
-    switch (activeTaskView) {
-      case "pending":
-        return tasks.filter(task => task.status === "pending" || task.status === "process");
-      case "urgent":
-        return tasks.filter(task => task.priority === "urgent" || task.isUrgent);
-      case "total":
-      default:
-        return tasks;
-    }
-  };
-
-  const filteredTasks = getFilteredTasks();
-  const pendingTasks = tasks.filter(task => task.status === "pending" || task.status === "process");
-  const urgentTasks = tasks.filter(task => task.priority === "urgent" || task.isUrgent);
-
-  const taskViews = [
-    { id: "total", label: "Total Tasks", count: tasks.length, icon: "📋", color: "blue" },
-    { id: "pending", label: "Pending Tasks", count: pendingTasks.length, icon: "⏳", color: "yellow" },
-    { id: "urgent", label: "Urgent Tasks", count: urgentTasks.length, icon: "🚨", color: "red" }
-  ];
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="space-y-8 relative">
-      {/* Clean Header */}
-      <div className="relative">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <h2 className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-              My Tasks
-            </h2>
-            <div>📋</div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-            <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">View and manage your assigned tasks</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Task Summary Cards - clean style */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-        {taskViews.map((view, index) => (
-          <div
-            key={view.id}
-            onClick={() => setActiveTaskView(view.id)}
-            className="relative cursor-pointer"
-            style={{ animationDelay: `${index * 150}ms` }}
-          >
-            <div className={`relative bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden transition-all duration-200 ${
-              activeTaskView === view.id ? 'ring-2 ring-indigo-500' : ''
-            }`}>
-              <div className="relative p-6 border-b border-gray-100 dark:border-gray-700">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-4">
-                    <div className="p-2 rounded-md bg-gray-100 dark:bg-gray-700">
-                      <span className="text-xs">{view.icon}</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-bold text-gray-600 dark:text-gray-400 mb-1">{view.label}</p>
-                      <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">
-                        {view.count}
-                      </p>
-                    </div>
-                  </div>
-                  {activeTaskView === view.id && (
-                    <div className="flex items-center space-x-2">
-                      <div className="w-3 h-3 bg-indigo-500 rounded-full"></div>
-                      <span className="text-xs font-bold text-indigo-600 dark:text-indigo-400">ACTIVE</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* Task List - clean style */}
-      <div className="relative">
-        <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
-          <div className="relative p-6 border-b border-gray-100 dark:border-gray-700">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="p-3 bg-gray-100 dark:bg-gray-700 rounded-xl">
-                  <span className="text-2xl">📋</span>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900 dark:text-gray-100">
-                    {taskViews.find(v => v.id === activeTaskView)?.label}
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-blue-400 rounded-full"></div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                      {filteredTasks.length} tasks
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="max-h-96 overflow-y-auto">
-            {filteredTasks.length === 0 ? (
-              <div className="p-12 text-center">
-                <div className="text-gray-400 text-6xl mb-4">📋</div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No tasks found</h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  No {activeTaskView} tasks available at the moment.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-gray-100 dark:divide-gray-700">
-                {filteredTasks.map((task, index) => (
-                  <TaskCard
-                    key={task._id}
-                    task={task}
-                    index={index}
-                    onStatusChange={(taskId, newStatus) => {
-                      setTasks(prevTasks =>
-                        prevTasks.map(t =>
-                          t._id === taskId ? { ...t, status: newStatus } : t
-                        )
-                      );
-                    }}
-                  />
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Contact Manager Tab Component
-function ContactManagerTab({ user, department }) {
-  const [messages, setMessages] = useState([]);
-  const [newMessage, setNewMessage] = useState("");
-  const [messageType, setMessageType] = useState("general");
-  const [priority, setPriority] = useState("medium");
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
-  const [success, setSuccess] = useState(null);
-
-  useEffect(() => {
-    // Load existing messages/conversations
-    loadMessages();
-    
-    // Set up polling to check for new messages every 30 seconds
-    const intervalId = setInterval(loadMessages, 30000);
-    
-    // Clean up interval on component unmount
-    return () => clearInterval(intervalId);
-  }, []);
-
-  const loadMessages = async () => {
-    try {
-      setLoading(true);
-      // In a real app, you would fetch messages from the backend
-      // const response = await getMessages();
-      // setMessages(response.data);
-      
-      // For now, using mock data
-      const mockMessages = [
-        {
-          id: 1,
-          type: "request",
-          priority: "high",
-          subject: "Equipment Replacement Request",
-          message: "The vacuum cleaner in storage room B is broken and needs immediate replacement.",
-          timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000),
-          status: "pending",
-          department: department,
-          response: null
-        },
-        {
-          id: 2,
-          type: "general",
-          priority: "medium",
-          subject: "Schedule Change Request",
-          message: "Could I please switch my shift on Friday with another team member? I have a family emergency.",
-          timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000),
-          status: "responded",
-          department: department,
-          response: {
-            message: "Approved. Please coordinate with Sarah from the evening shift.",
-            timestamp: new Date(Date.now() - 20 * 60 * 60 * 1000)
-          }
-        }
-      ];
-      
-      // Filter messages by department if needed
-      const filteredMessages = mockMessages.filter(msg => 
-        msg.department === department || msg.department === 'all'
-      );
-      
-      setMessages(filteredMessages);
-      setError(null);
-    } catch (err) {
-      console.error('Error loading messages:', err);
-      setError('Failed to load messages. Please try again later.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleSendMessage = async () => {
-    if (!newMessage.trim()) return;
-
-    setLoading(true);
-    setError(null);
-    setSuccess(null);
-    
-    try {
-      const messageData = {
-        type: messageType,
-        priority: priority,
-        subject: getSubjectFromType(messageType),
-        message: newMessage,
-        department: department
-      };
-
-      // In a real app, you would send this to your backend
-      // const response = await sendMessage(messageData);
-      
-      // For now, simulate API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Create a mock response
-      const newMsg = {
-        id: Date.now(),
-        ...messageData,
-        timestamp: new Date(),
-        status: "pending",
-        response: null
-      };
-
-      // Add to messages
-      setMessages(prev => [newMsg, ...prev]);
-      
-      // Show success message
-      setSuccess('Message sent successfully!');
-      
-      // Clear form
-      setNewMessage("");
-      setMessageType("general");
-      setPriority("medium");
-      
-      // Clear success message after 5 seconds
-      setTimeout(() => setSuccess(null), 5000);
-    } catch (err) {
-      console.error('Error sending message:', err);
-      setError(err.message || 'Failed to send message. Please try again.');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getSubjectFromType = (type) => {
-    const subjects = {
-      general: "General Inquiry",
-      request: "Resource Request",
-      complaint: "Issue Report",
-      schedule: "Schedule Request",
-      emergency: "Emergency Alert"
-    };
-    return subjects[type] || "Message";
-  };
-
-  const getPriorityColor = (priority) => {
-    switch (priority) {
-      case "high":
-        return "bg-red-100 text-red-800 border-red-200";
-      case "medium":
-        return "bg-yellow-100 text-yellow-800 border-yellow-200";
-      case "low":
-        return "bg-green-100 text-green-800 border-green-200";
-      default:
-        return "bg-gray-100 text-gray-800 border-gray-200";
-    }
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "pending":
-        return "bg-yellow-100 text-yellow-800";
-      case "responded":
-        return "bg-green-100 text-green-800";
-      case "closed":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-blue-100 text-blue-800";
-    }
-  };
-
-  return (
-    <div className="space-y-8 relative">
-      {/* Floating Background Elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-10 left-10 w-32 h-32 bg-gradient-to-br from-purple-400/20 to-pink-400/20 rounded-full blur-xl animate-pulse"></div>
-        <div className="absolute top-40 right-20 w-24 h-24 bg-gradient-to-br from-blue-400/20 to-cyan-400/20 rounded-full blur-xl animate-pulse delay-1000"></div>
-        <div className="absolute bottom-20 left-1/3 w-40 h-40 bg-gradient-to-br from-green-400/20 to-emerald-400/20 rounded-full blur-xl animate-pulse delay-2000"></div>
-      </div>
-
-      {/* Header with animated title */}
-      <div className="relative">
-        <div className="flex justify-between items-center">
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <div className="absolute inset-0 bg-gradient-to-r from-purple-600 to-pink-600 rounded-2xl blur opacity-30 animate-pulse"></div>
-              <h2 className="relative text-3xl font-bold bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 bg-clip-text text-transparent">
-                Contact Manager
-              </h2>
-            </div>
-            <div className="animate-bounce">💬</div>
-          </div>
-          <div className="flex items-center space-x-2">
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-ping"></div>
-            <p className="text-gray-600 dark:text-gray-300 text-sm font-medium">Connected to Management</p>
-          </div>
-        </div>
-      </div>
-
-      {/* Enhanced New Message Form */}
-      <div className="group relative">
-        <div className="absolute -inset-1 bg-gradient-to-r from-purple-600 via-pink-600 to-indigo-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
-        <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden">
-          <div className="relative bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-pink-500/10 p-6 border-b border-white/20 dark:border-gray-700/30">
-            <div className="flex items-center space-x-3">
-              <div className="relative">
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-xl blur opacity-50 animate-pulse"></div>
-                <div className="relative p-3 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
-                  <span className="text-2xl filter drop-shadow-sm">✉️</span>
-                </div>
-              </div>
-              <div>
-                <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
-                  Compose Message
-                </h3>
-                <p className="text-sm text-gray-600 dark:text-gray-400">Send a message to your manager</p>
-              </div>
-            </div>
-          </div>
-          <div className="p-6 space-y-6">
-            {/* Status Messages */}
-            {error && (
-              <div className="p-4 bg-red-100 border-l-4 border-red-500 text-red-700 rounded">
-                <p>{error}</p>
-              </div>
-            )}
-            {success && (
-              <div className="p-4 bg-green-100 border-l-4 border-green-500 text-green-700 rounded">
-                <p>{success}</p>
-              </div>
-            )}
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="group">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center space-x-2">
-                  <span>🏷️</span>
-                  <span>Message Type</span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={messageType}
-                    onChange={(e) => setMessageType(e.target.value)}
-                    className="w-full px-5 py-4 border-2 border-transparent bg-gradient-to-r from-white/90 to-gray-50/90 dark:from-gray-700/90 dark:to-gray-800/90 backdrop-blur-sm rounded-2xl text-gray-900 dark:text-gray-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-400/20 transition-all duration-300 hover:shadow-lg appearance-none cursor-pointer font-bold"
-                  >
-                    <option value="general" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">💬 General Inquiry</option>
-                    <option value="request" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">📋 Resource Request</option>
-                    <option value="complaint" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">⚠️ Issue Report</option>
-                    <option value="schedule" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">📅 Schedule Request</option>
-                    <option value="emergency" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">🚨 Emergency Alert</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-                    <div className="w-6 h-6 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs">▼</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="group">
-                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center space-x-2">
-                  <span>🎯</span>
-                  <span>Priority Level</span>
-                </label>
-                <div className="relative">
-                  <select
-                    value={priority}
-                    onChange={(e) => setPriority(e.target.value)}
-                    className="w-full px-5 py-4 border-2 border-transparent bg-gradient-to-r from-white/90 to-gray-50/90 dark:from-gray-700/90 dark:to-gray-800/90 backdrop-blur-sm rounded-2xl text-gray-900 dark:text-gray-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-400/20 transition-all duration-300 hover:shadow-lg appearance-none cursor-pointer font-bold"
-                  >
-                    <option value="low" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">🟢 Low Priority</option>
-                    <option value="medium" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">🟡 Medium Priority</option>
-                    <option value="high" className="text-gray-900 dark:text-gray-100 font-bold bg-white dark:bg-gray-800">🔴 High Priority</option>
-                  </select>
-                  <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-                    <div className="w-6 h-6 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full flex items-center justify-center">
-                      <span className="text-white text-xs">▼</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="group">
-              <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-3 flex items-center space-x-2">
-                <span>✍️</span>
-                <span>Your Message</span>
-              </label>
-              <div className="relative">
-                <textarea
-                  value={newMessage}
-                  onChange={(e) => setNewMessage(e.target.value)}
-                  placeholder="Type your message here... Be specific and clear about your request."
-                  rows={5}
-                  className="w-full px-5 py-4 border-2 border-transparent bg-gradient-to-br from-white/80 via-gray-50/80 to-white/80 dark:from-gray-800/80 dark:via-gray-900/80 dark:to-gray-800/80 backdrop-blur-sm rounded-2xl text-gray-900 dark:text-gray-100 focus:border-indigo-400 focus:ring-4 focus:ring-indigo-400/20 transition-all duration-300 hover:shadow-lg resize-none font-medium placeholder-gray-500 dark:placeholder-gray-400"
-                />
-                <div className="absolute bottom-3 right-3 text-xs text-gray-400 font-medium">
-                  {newMessage.length}/500
-                </div>
-              </div>
-            </div>
-
-            <div className="flex justify-end">
-              <button
-                onClick={handleSendMessage}
-                disabled={loading || !newMessage.trim()}
-                className="group relative px-8 py-4 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white rounded-2xl shadow-2xl hover:shadow-3xl transform hover:scale-105 hover:-translate-y-1 transition-all duration-500 font-bold overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none min-w-[160px]"
-              >
-                <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-purple-600 to-pink-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                <div className="absolute inset-0 bg-white/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 animate-pulse"></div>
-                <span className="relative flex items-center justify-center space-x-3">
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent"></div>
-                      <span>Sending...</span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-xl animate-bounce">🚀</span>
-                      <span>Send Message</span>
-                    </>
-                  )}
-                </span>
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Enhanced Message History */}
-      <div className="relative">
-        <div className="absolute -inset-1 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-600 rounded-3xl blur opacity-20"></div>
-        <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden">
-          <div className="relative bg-gradient-to-r from-blue-500/10 via-indigo-500/10 to-purple-500/10 p-6 border-b border-white/20 dark:border-gray-700/30">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-4">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-blue-400 to-indigo-400 rounded-xl blur opacity-50 animate-pulse"></div>
-                  <div className="relative p-3 bg-gradient-to-r from-blue-500 to-indigo-600 rounded-xl shadow-lg">
-                    <span className="text-2xl filter drop-shadow-sm">📨</span>
-                  </div>
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-gray-900 to-gray-700 dark:from-gray-100 dark:to-gray-300 bg-clip-text text-transparent">
-                    Message History
-                  </h3>
-                  <div className="flex items-center space-x-2">
-                    <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 font-medium">
-                      {messages.length} conversations
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="max-h-96 overflow-y-auto">
-            {messages.length === 0 ? (
-              <div className="p-12 text-center">
-                <div className="relative">
-                  <div className="absolute inset-0 bg-gradient-to-r from-purple-400/20 to-pink-400/20 rounded-full blur-xl animate-pulse"></div>
-                  <div className="relative text-gray-400 text-6xl mb-4 animate-bounce">💬</div>
-                </div>
-                <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No messages yet</h3>
-                <p className="text-gray-600 dark:text-gray-300">
-                  Send your first message to your manager using the form above.
-                </p>
-              </div>
-            ) : (
-              <div className="divide-y divide-white/30 dark:divide-gray-700/50">
-                {messages.map((message, index) => (
-                  <div 
-                    key={message.id} 
-                    className="group p-6 hover:bg-gradient-to-r hover:from-white/60 hover:to-gray-50/60 dark:hover:from-gray-700/60 dark:hover:to-gray-800/60 transition-all duration-500 transform hover:scale-[1.02] hover:shadow-lg"
-                    style={{ animationDelay: `${index * 100}ms` }}
-                  >
-                    <div className="flex items-start justify-between mb-4">
-                      <div className="flex items-center space-x-4">
-                        <div className="relative">
-                          <div className="absolute inset-0 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-xl blur opacity-30 animate-pulse"></div>
-                          <div className="relative p-2 bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg">
-                            <span className="text-lg filter drop-shadow-sm">{getTypeIcon(message.type)}</span>
-                          </div>
-                        </div>
-                        <div>
-                          <h4 className="text-lg font-bold text-gray-900 dark:text-gray-100 mb-1">{message.subject}</h4>
-                          <div className="flex items-center space-x-3">
-                            <span className={`px-3 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${getPriorityGradient(message.priority)} text-white shadow-lg`}>
-                              {message.priority.toUpperCase()}
-                            </span>
-                            <span className={`px-3 py-1 text-xs font-bold rounded-full bg-gradient-to-r ${getStatusGradient(message.status)} text-white shadow-lg animate-pulse`}>
-                              {message.status.toUpperCase()}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <span className="text-sm text-gray-500 dark:text-gray-400 font-medium">
-                          {message.timestamp.toLocaleString()}
-                        </span>
-                      </div>
-                    </div>
-                    
-                    <div className="relative">
-                      <div className="absolute -inset-1 bg-gradient-to-r from-gray-200/50 to-gray-300/50 dark:from-gray-700/50 dark:to-gray-800/50 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                      <div className="relative bg-gradient-to-br from-gray-50/80 to-white/80 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-sm p-5 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-inner">
-                        <p className="text-gray-700 dark:text-gray-300 font-medium leading-relaxed">
-                          {message.message}
-                        </p>
-                      </div>
-                    </div>
-
-                    {message.response && (
-                      <div className="mt-6 relative">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-green-400/30 to-emerald-400/30 rounded-2xl blur opacity-50 animate-pulse"></div>
-                        <div className="relative pl-6 border-l-4 border-gradient-to-b from-green-400 to-emerald-500">
-                          <div className="flex items-center space-x-3 mb-3">
-                            <div className="p-2 bg-gradient-to-r from-green-500 to-emerald-600 rounded-xl shadow-lg">
-                              <span className="text-lg filter drop-shadow-sm">👨‍💼</span>
-                            </div>
-                            <div>
-                              <span className="text-sm font-bold text-green-600 dark:text-green-400">Manager Response</span>
-                              <span className="block text-xs text-gray-500 dark:text-gray-400 font-medium">
-                                {message.response.timestamp.toLocaleString()}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="relative">
-                            <div className="absolute -inset-1 bg-gradient-to-r from-green-100/50 to-emerald-100/50 dark:from-green-900/30 dark:to-emerald-900/30 rounded-2xl blur"></div>
-                            <div className="relative bg-gradient-to-br from-green-50/90 to-emerald-50/90 dark:from-green-900/40 dark:to-emerald-900/40 backdrop-blur-sm p-4 rounded-2xl border border-green-200/50 dark:border-green-700/50 shadow-inner">
-                              <p className="text-gray-700 dark:text-gray-300 font-medium leading-relaxed">
-                                {message.response.message}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Helper functions for ContactManagerTab
-const getTypeIcon = (type) => {
-  const icons = {
-    general: "💬",
-    request: "📋",
-    complaint: "⚠️",
-    schedule: "📅",
-    emergency: "🚨"
-  };
-  return icons[type] || "💬";
+// Add PropTypes validation
+StaffDashboardPage.propTypes = {
+  // Add any props validation here if needed
 };
 
-const getPriorityGradient = (priority) => {
-  switch (priority) {
-    case "high":
-      return "from-red-400 via-red-500 to-red-600";
-    case "medium":
-      return "from-amber-400 via-orange-500 to-yellow-600";
-    case "low":
-      return "from-emerald-400 via-green-500 to-teal-600";
-    default:
-      return "from-gray-400 via-gray-500 to-gray-600";
-  }
-};
-
-const getStatusGradient = (status) => {
-  switch (status) {
-    case "pending":
-      return "from-amber-400 to-orange-500";
-    case "responded":
-      return "from-emerald-400 to-green-500";
-    case "closed":
-      return "from-gray-400 to-gray-500";
-    default:
-      return "from-blue-400 to-indigo-500";
-  }
-};
-
-// Notifications Tab Component
-function NotificationsTab({ user }) {
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Notifications</h2>
-        <button className="group relative px-6 py-3 bg-gradient-to-r from-indigo-500 to-purple-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold overflow-hidden">
-          <span className="absolute inset-0 bg-gradient-to-r from-indigo-600 to-purple-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-          <span className="relative flex items-center space-x-2">
-            <span>✓</span>
-            <span>Mark all as read</span>
-          </span>
-        </button>
-      </div>
-      
-      <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-sm rounded-lg shadow-lg border border-white/30">
-        <div className="p-6">
-          <p className="text-gray-600 dark:text-gray-300 text-center py-8">
-            Notification system will be implemented here with real-time updates.
-          </p>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Enhanced Task Card Component for displaying individual tasks
-function TaskCard({ task, onStatusChange, index }) {
-  const getStatusIcon = (status) => {
-    switch (status) {
-      case "pending":
-        return "⏳";
-      case "process":
-        return "🔄";
-      case "completed":
-        return "✅";
-      default:
-        return "⏳";
-    }
-  };
-
-  const getStatusGradient = (status) => {
-    switch (status) {
-      case "pending":
-        return "from-amber-400 to-yellow-500";
-      case "process":
-        return "from-blue-400 to-indigo-500";
-      case "completed":
-        return "from-emerald-400 to-green-500";
-      default:
-        return "from-gray-400 to-gray-500";
-    }
-  };
-
-  const getPriorityGradient = (priority) => {
-    switch (priority) {
-      case "urgent":
-        return "from-red-500 via-red-600 to-rose-600";
-      case "high":
-        return "from-orange-500 via-amber-600 to-yellow-600";
-      case "medium":
-        return "from-blue-500 via-indigo-600 to-purple-600";
-      case "low":
-        return "from-emerald-500 via-green-600 to-teal-600";
-      default:
-        return "from-gray-500 via-slate-600 to-zinc-600";
-    }
-  };
-
-  const getLocationIcon = (location) => {
-    switch (location) {
-      case "room":
-        return "🏠";
-      case "lobby":
-        return "🏛️";
-      case "kitchen":
-        return "👨‍🍳";
-      case "pool":
-        return "🏊‍♂️";
-      case "gym":
-        return "💪";
-      default:
-        return "📍";
-    }
-  };
-
-  const handleStatusChange = (newStatus) => {
-    onStatusChange(task._id, newStatus);
-  };
-
-  return (
-    <div 
-      className="group relative p-6 hover:bg-gradient-to-r hover:from-white/60 hover:to-gray-50/60 dark:hover:from-gray-700/60 dark:hover:to-gray-800/60 transition-all duration-500 transform hover:scale-[1.02] hover:shadow-xl"
-      style={{ animationDelay: `${index * 100}ms` }}
-    >
-      {/* Animated border gradient */}
-      <div className="absolute left-0 top-0 bottom-0 w-1 bg-gradient-to-b from-indigo-400 via-purple-500 to-pink-500 opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-r-full"></div>
-      
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center space-x-4 mb-4">
-            <div className="relative">
-              <div className={`absolute inset-0 rounded-xl blur opacity-30 animate-pulse bg-gradient-to-r ${getStatusGradient(task.status)}`}></div>
-              <div className={`relative p-2 rounded-xl shadow-lg bg-gradient-to-r ${getStatusGradient(task.status)} group-hover:rotate-6 transition-transform duration-300`}>
-                <span className="text-lg filter drop-shadow-sm">{getStatusIcon(task.status)}</span>
-              </div>
-            </div>
-            <div className="flex-1">
-              <h4 className="text-xl font-bold text-gray-900 dark:text-gray-100 mb-2 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-300">
-                {task.title}
-              </h4>
-              <div className="flex items-center space-x-3 flex-wrap gap-2">
-                <span className={`px-4 py-2 text-xs font-bold rounded-full text-white shadow-lg bg-gradient-to-r ${getPriorityGradient(task.priority)} transform group-hover:scale-110 transition-all duration-300 animate-pulse`}>
-                  {task.priority.toUpperCase()}
-                </span>
-                <span className={`px-4 py-2 text-xs font-bold rounded-full text-white shadow-lg bg-gradient-to-r ${getStatusGradient(task.status)} transform group-hover:scale-110 transition-all duration-300`}>
-                  {task.status.toUpperCase()}
-                </span>
-                {task.isUrgent && (
-                  <span className="px-4 py-2 text-xs font-bold bg-gradient-to-r from-red-500 via-red-600 to-rose-600 text-white rounded-full shadow-xl animate-bounce border-2 border-red-300 transform group-hover:scale-110 transition-all duration-300">
-                    🚨 URGENT
-                  </span>
-                )}
-              </div>
-            </div>
-          </div>
-          
-          <div className="relative mb-4">
-            <div className="absolute -inset-1 bg-gradient-to-r from-gray-200/50 to-gray-300/50 dark:from-gray-700/50 dark:to-gray-800/50 rounded-2xl blur opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-            <div className="relative bg-gradient-to-br from-gray-50/80 to-white/80 dark:from-gray-800/80 dark:to-gray-900/80 backdrop-blur-sm p-4 rounded-2xl border border-gray-200/50 dark:border-gray-700/50 shadow-inner">
-              <p className="text-gray-700 dark:text-gray-300 font-medium leading-relaxed">{task.description}</p>
-            </div>
-          </div>
-          
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 text-sm">
-            <div className="flex items-center space-x-2 p-3 bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-900/30 dark:to-indigo-900/30 rounded-xl border border-blue-200/50 dark:border-blue-700/50 group-hover:shadow-lg transition-all duration-300">
-              <span className="text-lg">{getLocationIcon(task.location)}</span>
-              <span className="font-semibold text-gray-700 dark:text-gray-300">{task.location}</span>
-            </div>
-            {task.roomNumber && (
-              <div className="flex items-center space-x-2 p-3 bg-gradient-to-r from-purple-50/80 to-pink-50/80 dark:from-purple-900/30 dark:to-pink-900/30 rounded-xl border border-purple-200/50 dark:border-purple-700/50 group-hover:shadow-lg transition-all duration-300">
-                <span className="text-lg">🏠</span>
-                <span className="font-semibold text-gray-700 dark:text-gray-300">Room {task.roomNumber}</span>
-              </div>
-            )}
-            <div className="flex items-center space-x-2 p-3 bg-gradient-to-r from-green-50/80 to-emerald-50/80 dark:from-green-900/30 dark:to-emerald-900/30 rounded-xl border border-green-200/50 dark:border-green-700/50 group-hover:shadow-lg transition-all duration-300">
-              <span className="text-lg">📂</span>
-              <span className="font-semibold text-gray-700 dark:text-gray-300">{task.category}</span>
-            </div>
-            <div className="flex items-center space-x-2 p-3 bg-gradient-to-r from-orange-50/80 to-amber-50/80 dark:from-orange-900/30 dark:to-amber-900/30 rounded-xl border border-orange-200/50 dark:border-orange-700/50 group-hover:shadow-lg transition-all duration-300">
-              <span className="text-lg">⏱️</span>
-              <span className="font-semibold text-gray-700 dark:text-gray-300">{task.estimatedDuration} min</span>
-            </div>
-            <div className="flex items-center space-x-2 p-3 bg-gradient-to-r from-cyan-50/80 to-teal-50/80 dark:from-cyan-900/30 dark:to-teal-900/30 rounded-xl border border-cyan-200/50 dark:border-cyan-700/50 group-hover:shadow-lg transition-all duration-300">
-              <span className="text-lg">📅</span>
-              <span className="font-semibold text-gray-700 dark:text-gray-300">{new Date(task.createdAt).toLocaleDateString()}</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="flex items-start space-x-4">
-          <div className="relative group/select">
-            <div className="absolute -inset-1 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-2xl blur opacity-0 group-hover/select:opacity-30 transition-opacity duration-300"></div>
-            <select
-              value={task.status}
-              onChange={(e) => handleStatusChange(e.target.value)}
-              className="relative appearance-none px-5 py-3 pr-10 text-sm font-bold border-2 border-transparent bg-gradient-to-r from-white/90 to-gray-50/90 dark:from-gray-800/90 dark:to-gray-900/90 backdrop-blur-sm rounded-2xl text-gray-900 dark:text-gray-100 focus:ring-4 focus:ring-indigo-400/20 focus:border-indigo-400 hover:border-indigo-300 hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105"
-            >
-              <option value="pending">⏳ Pending</option>
-              <option value="process">🔄 In Progress</option>
-              <option value="completed">✅ Completed</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-              <div className="w-6 h-6 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full flex items-center justify-center">
-                <span className="text-white text-xs">▼</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// Helper function to generate sample tasks based on department and user
-function generateSampleTasks(department, user) {
-  const baseId = Date.now();
-  
-  const taskTemplates = {
-    maintenance: [
-      {
-        title: "Fix AC in Room 205",
-        description: "Guest reported AC not working properly. Need to check and repair the cooling system.",
-        category: "hvac",
-        priority: "high",
-        status: "pending",
-        location: "room",
-        roomNumber: "205",
-        estimatedDuration: 45,
-        isUrgent: false
-      },
-      {
-        title: "Replace light bulbs in lobby",
-        description: "Several light bulbs in the main lobby area need replacement.",
-        category: "electrical",
-        priority: "medium",
-        status: "process",
-        location: "lobby",
-        estimatedDuration: 30,
-        isUrgent: false
-      },
-      {
-        title: "Fix leaking faucet in Room 312",
-        description: "Guest reported a leaking bathroom faucet that needs immediate attention.",
-        category: "plumbing",
-        priority: "urgent",
-        status: "pending",
-        location: "room",
-        roomNumber: "312",
-        estimatedDuration: 60,
-        isUrgent: true
-      },
-      {
-        title: "Elevator maintenance check",
-        description: "Monthly elevator safety and maintenance inspection.",
-        category: "general",
-        priority: "medium",
-        status: "completed",
-        location: "other",
-        estimatedDuration: 90,
-        isUrgent: false
-      },
-      {
-        title: "Pool filtration system repair",
-        description: "Pool filtration system showing error codes, needs diagnostic and repair.",
-        category: "general",
-        priority: "high",
-        status: "pending",
-        location: "pool",
-        estimatedDuration: 120,
-        isUrgent: false
-      }
-    ],
-    kitchen: [
-      {
-        title: "Prepare breakfast buffet",
-        description: "Set up and prepare breakfast buffet for hotel guests.",
-        category: "food_preparation",
-        priority: "high",
-        status: "completed",
-        location: "kitchen",
-        estimatedDuration: 60,
-        isUrgent: false
-      },
-      {
-        title: "Clean and sanitize prep area",
-        description: "Deep clean and sanitize all food preparation surfaces and equipment.",
-        category: "cleaning",
-        priority: "medium",
-        status: "process",
-        location: "kitchen",
-        estimatedDuration: 45,
-        isUrgent: false
-      },
-      {
-        title: "Inventory check - dairy products",
-        description: "Check expiration dates and stock levels for all dairy products.",
-        category: "inventory",
-        priority: "medium",
-        status: "pending",
-        location: "kitchen",
-        estimatedDuration: 30,
-        isUrgent: false
-      },
-      {
-        title: "Fix commercial oven temperature",
-        description: "Oven not reaching proper temperature, affecting cooking times.",
-        category: "equipment",
-        priority: "urgent",
-        status: "pending",
-        location: "kitchen",
-        estimatedDuration: 90,
-        isUrgent: true
-      },
-      {
-        title: "Prepare special dietary meals",
-        description: "Prepare gluten-free and vegan options for guests with dietary restrictions.",
-        category: "cooking",
-        priority: "high",
-        status: "process",
-        location: "kitchen",
-        estimatedDuration: 75,
-        isUrgent: false
-      }
-    ],
-    service: [
-      {
-        title: "Guest transportation request",
-        description: "Guest in Room 301 needs transportation to airport at 2 PM.",
-        category: "transportation",
-        priority: "medium",
-        status: "pending",
-        location: "lobby",
-        roomNumber: "301",
-        estimatedDuration: 20,
-        isUrgent: false
-      },
-      {
-        title: "VIP guest welcome setup",
-        description: "Prepare welcome amenities and room setup for VIP guest arrival.",
-        category: "guest_request",
-        priority: "high",
-        status: "process",
-        location: "room",
-        roomNumber: "501",
-        estimatedDuration: 40,
-        isUrgent: false
-      },
-      {
-        title: "Handle guest complaint",
-        description: "Guest complaint about noise levels, needs immediate attention and resolution.",
-        category: "guest_request",
-        priority: "urgent",
-        status: "pending",
-        location: "room",
-        roomNumber: "203",
-        estimatedDuration: 30,
-        isUrgent: true
-      },
-      {
-        title: "Concierge tour booking",
-        description: "Arrange city tour bookings for group of 8 guests.",
-        category: "concierge",
-        priority: "medium",
-        status: "completed",
-        location: "lobby",
-        estimatedDuration: 25,
-        isUrgent: false
-      },
-      {
-        title: "Room service delivery",
-        description: "Deliver dinner order to Room 408 - special dietary requirements.",
-        category: "room_service",
-        priority: "high",
-        status: "pending",
-        location: "room",
-        roomNumber: "408",
-        estimatedDuration: 15,
-        isUrgent: false
-      }
-    ],
-    cleaning: [
-      {
-        title: "Deep clean Room 102",
-        description: "Guest checked out. Room needs deep cleaning and sanitization.",
-        category: "deep_cleaning",
-        priority: "high",
-        status: "pending",
-        location: "room",
-        roomNumber: "102",
-        estimatedDuration: 90,
-        isUrgent: false
-      },
-      {
-        title: "Laundry - bed linens",
-        description: "Process and clean bed linens from checkout rooms.",
-        category: "laundry",
-        priority: "medium",
-        status: "process",
-        location: "other",
-        estimatedDuration: 120,
-        isUrgent: false
-      },
-      {
-        title: "Restock housekeeping supplies",
-        description: "Restock cleaning supplies and amenities on floors 2 and 3.",
-        category: "restocking",
-        priority: "medium",
-        status: "completed",
-        location: "other",
-        estimatedDuration: 45,
-        isUrgent: false
-      },
-      {
-        title: "Emergency spill cleanup",
-        description: "Large spill in main corridor needs immediate cleanup and safety measures.",
-        category: "cleaning",
-        priority: "urgent",
-        status: "pending",
-        location: "other",
-        estimatedDuration: 20,
-        isUrgent: true
-      },
-      {
-        title: "Gym equipment sanitization",
-        description: "Daily sanitization of all gym equipment and surfaces.",
-        category: "cleaning",
-        priority: "high",
-        status: "process",
-        location: "gym",
-        estimatedDuration: 60,
-        isUrgent: false
-      }
-    ]
-  };
-
-  const templates = taskTemplates[department] || taskTemplates.service;
-  
-  return templates.map((template, index) => ({
-    ...template,
-    _id: `${baseId + index}`,
-    assignedTo: {
-      id: user?.id || 'user1',
-      name: user?.name || 'Current User'
-    },
-    createdAt: new Date(Date.now() - Math.random() * 7 * 24 * 60 * 60 * 1000).toISOString() // Random date within last week
-  }));
-}
+export default StaffDashboardPage;

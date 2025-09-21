@@ -5,6 +5,7 @@ import StaffProfile from "../../models/profiles/StaffProfile.js";
 import { User } from "../../models/User.js";
 import { formatResponse } from "../../utils/responseFormatter.js";
 import logger from "../../utils/logger.js";
+import NotificationService from "../../services/notification/notificationService.js";
 
 // Get all tasks with filtering
 export const getTasks = async (req, res) => {
@@ -62,10 +63,112 @@ export const getTasks = async (req, res) => {
   }
 };
 
+// Assign existing DB tasks to staff fairly by department (round-robin)
+export const assignExistingTasks = async (req, res) => {
+  try {
+    const {
+      departments, // optional array of dept keys e.g., ["maintenance","kitchen"]
+      onlyUnassigned = true, // only tasks without assignedTo
+      overwriteAssignments = false, // reassign even if assignedTo exists
+      statuses = ["pending"], // statuses to consider
+      notify = true, // send notifications to assigned staff
+      sortBy = "dueDate" // dueDate or createdAt
+    } = req.body || {};
+
+    // Build staff per-department map
+    const staffQuery = { isActive: true };
+    if (Array.isArray(departments) && departments.length > 0) {
+      staffQuery.department = { $in: departments };
+    }
+    const staffProfiles = await StaffProfile.find(staffQuery).select("userId department");
+    const deptToStaff = staffProfiles.reduce((acc, sp) => {
+      if (!acc[sp.department]) acc[sp.department] = [];
+      acc[sp.department].push(sp.userId);
+      return acc;
+    }, {});
+
+    if (Object.keys(deptToStaff).length === 0) {
+      return res
+        .status(400)
+        .json(
+          formatResponse(false, "No active staff found for the provided departments")
+        );
+    }
+
+    // Build task query
+    const taskQuery = { status: { $in: statuses } };
+    const departmentsToUse = Array.isArray(departments) && departments.length > 0
+      ? departments
+      : Object.keys(deptToStaff);
+    taskQuery.department = { $in: departmentsToUse };
+    if (onlyUnassigned && !overwriteAssignments) {
+      taskQuery.$or = [{ assignedTo: { $exists: false } }, { assignedTo: null }];
+    }
+
+    const sort = sortBy === "dueDate" ? { dueDate: 1, createdAt: 1 } : { createdAt: 1 };
+    const tasks = await StaffTask.find(taskQuery).sort(sort);
+
+    if (tasks.length === 0) {
+      return res.json(
+        formatResponse(true, "No matching tasks found to assign", { assigned: 0 })
+      );
+    }
+
+    // Prepare round-robin indices per department
+    const rrIndex = {};
+    Object.keys(deptToStaff).forEach((dept) => (rrIndex[dept] = 0));
+
+    let assignedCount = 0;
+    const assignments = [];
+
+    for (const task of tasks) {
+      const dept = task.department;
+      const staffList = deptToStaff[dept] || [];
+      if (staffList.length === 0) continue; // no staff in that dept
+
+      // Skip if already assigned and we don't overwrite
+      if (task.assignedTo && !overwriteAssignments) continue;
+
+      // Round-robin pick
+      const index = rrIndex[dept] % staffList.length;
+      const staffUserId = staffList[index];
+      rrIndex[dept]++;
+
+      // Assign
+      task.assignedTo = staffUserId;
+      if (!task.assignedBy) task.assignedBy = req.user._id; // default assigner
+      await task.save();
+
+      assignments.push({ taskId: task._id, department: dept, assignedTo: staffUserId });
+      assignedCount++;
+
+      if (notify) {
+        await createTaskNotification(task, "task_assigned");
+      }
+    }
+
+    res.json(
+      formatResponse(true, "Tasks assigned successfully", {
+        assigned: assignedCount,
+        totalConsidered: tasks.length,
+        departments: departmentsToUse,
+        assignments,
+      })
+    );
+  } catch (error) {
+    logger.error("Error assigning existing tasks:", error);
+    res
+      .status(500)
+      .json(
+        formatResponse(false, "Failed to assign existing tasks", null, error.message)
+      );
+  }
+};
+
 // Get tasks for specific staff member
 export const getMyTasks = async (req, res) => {
   try {
-    const { userId } = req.user;
+    const userId = req.user._id;
     const { status, priority, page = 1, limit = 20 } = req.query;
 
     const filter = { assignedTo: userId };
@@ -126,7 +229,7 @@ export const createTask = async (req, res) => {
       category,
       estimatedDuration,
       materials,
-      assignedBy: req.user.userId,
+      assignedBy: req.user._id,
       isUrgent,
       requiresApproval,
       tags
@@ -159,7 +262,22 @@ export const createTask = async (req, res) => {
 export const updateTask = async (req, res) => {
   try {
     const { taskId } = req.params;
-    const updateData = req.body;
+    const updateData = { ...req.body };
+
+    // Normalize status casing from clients (e.g., "Completed" -> "completed")
+    if (typeof updateData.status === "string") {
+      const normalized = updateData.status.trim().toLowerCase();
+      const allowed = [
+        "pending",
+        "process",
+        "completed",
+        "handoff_pending",
+        "handoff_accepted",
+      ];
+      if (allowed.includes(normalized)) {
+        updateData.status = normalized;
+      }
+    }
 
     const task = await StaffTask.findById(taskId);
     if (!task) {
@@ -186,7 +304,7 @@ export const updateTask = async (req, res) => {
     if (isHandoff && updateData.handoffDepartment) {
       task.handoffDepartment = updateData.handoffDepartment;
       task.handoffReason = updateData.handoffReason || "Task ready for next department";
-      task.handoffFrom = req.user.userId;
+      task.handoffFrom = req.user._id;
       
       // Create notification for handoff
       await createTaskNotification(task, "task_handoff");
@@ -197,6 +315,63 @@ export const updateTask = async (req, res) => {
     // Create notifications for status changes
     if (statusChanged) {
       await createTaskNotification(task, "task_updated");
+    }
+
+    // If task has just been completed, notify manager(s)
+    if (willBeCompleted && !wasCompleted) {
+      try {
+        // Re-fetch populated task details for richer notification content
+        const populatedForNotify = await StaffTask.findById(task._id)
+          .populate("assignedTo", "name email role")
+          .populate("assignedBy", "name email role");
+
+        // Determine manager recipients
+        let managerIds = [];
+        if (populatedForNotify?.assignedBy) {
+          const assigner = populatedForNotify.assignedBy;
+          if (assigner.role === "manager") {
+            managerIds = [assigner._id];
+          }
+        }
+
+        if (managerIds.length === 0) {
+          const managers = await User.find({ role: "manager", isApproved: true }).select("_id");
+          managerIds = managers.map((m) => m._id);
+        }
+
+        // Build notification message
+        const title = `Task Completed: ${populatedForNotify.title}`;
+        const completedBy = populatedForNotify.assignedTo?.name || "Staff Member";
+        const message = `"${populatedForNotify.title}" has been marked as completed by ${completedBy}.`;
+
+        // Send notifications to managers (in-app)
+        await Promise.all(
+          managerIds.map((managerId) =>
+            NotificationService.sendNotification({
+              userId: managerId,
+              userType: "manager",
+              type: "staff_alert", // Using existing manager-friendly type
+              title,
+              message,
+              channel: "inApp",
+              priority: populatedForNotify.isUrgent ? "high" : "medium",
+              metadata: {
+                taskId: populatedForNotify._id.toString(),
+                department: populatedForNotify.department,
+                location: populatedForNotify.location,
+                roomNumber: populatedForNotify.roomNumber,
+                completedAt: new Date().toISOString(),
+              },
+              actionUrl: `/staff/tasks/${populatedForNotify._id}`,
+            })
+          )
+        );
+
+        // Also create a staff notification of type task_completed for historical record
+        await createTaskNotification(task, "task_completed");
+      } catch (notifyErr) {
+        logger.error("Error sending manager completion notification:", notifyErr);
+      }
     }
 
     const updatedTask = await StaffTask.findById(taskId)
@@ -225,7 +400,7 @@ export const addTaskNote = async (req, res) => {
 
     task.notes.push({
       content,
-      addedBy: req.user.userId
+      addedBy: req.user._id
     });
 
     await task.save();
@@ -310,7 +485,7 @@ export const getPublicStaffUpdates = async (req, res) => {
 export const acceptHandoff = async (req, res) => {
   try {
     const { taskId } = req.params;
-    const { userId } = req.user;
+    const userId = req.user._id;
 
     const task = await StaffTask.findById(taskId);
     if (!task) {
