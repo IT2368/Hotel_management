@@ -9,6 +9,7 @@ import * as scheduleController from "../controllers/staff/scheduleController.js"
 import multer from "multer";
 import path from "path";
 import fs from "fs";
+import { updateTaskStatus } from '../controllers/staff/taskController.js';
 
 const router = express.Router();
 
@@ -20,7 +21,9 @@ router.use(authorizeRoles(["staff", "manager", "admin"]));
 router.get("/tasks", taskController.getTasks);
 router.get("/tasks/my", taskController.getMyTasks);
 router.post("/tasks", taskController.createTask);
-router.put("/tasks/:taskId", taskController.updateTask);
+router.put("/tasks/:taskId", taskController.updateTaskStatus);
+// New endpoint for updating just the task status
+router.put("/tasks/:taskId/status", taskController.updateTaskStatus);
 router.delete("/tasks/:taskId", taskController.deleteTask);
 router.post("/tasks/:taskId/notes", taskController.addTaskNote);
 router.post("/tasks/:taskId/accept-handoff", taskController.acceptHandoff);

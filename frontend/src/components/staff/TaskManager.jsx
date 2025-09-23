@@ -49,10 +49,7 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
       cheff: "kitchen",
       kitchen: "kitchen",
       maintenance: "maintenance",
-      maintanence: "maintenance",
-      maintenence: "maintenance",
       service: "service",
-      services: "service",
       cleaning: "cleaning",
       housekeeping: "cleaning",
     };
@@ -273,14 +270,47 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
 
   const handleStatusChange = async (taskId, newStatus, handoffData = null) => {
     try {
+      // Create a copy of the current task
+      const currentTask = tasks.find(t => t._id === taskId);
+      if (!currentTask) {
+        console.error("Task not found");
+        return;
+      }
+
       // Prepare update data
       const updateData = { status: newStatus };
+      const now = new Date();
+      
+      // Set completedAt timestamp when marking as completed
+      if (newStatus === 'completed') {
+        updateData.completedAt = now.toISOString();
+      } else if (currentTask.status === 'completed') {
+        // Clear completedAt when changing from completed to another status
+        updateData.completedAt = null;
+      }
+      
+      // Add handoff data if present
       if (handoffData) {
         updateData.handoffDepartment = handoffData.department;
         updateData.handoffReason = handoffData.reason;
+        updateData.handoffRequestedAt = now.toISOString();
       }
 
-      // API call to update task status
+      // Optimistically update the UI
+      setTasks(prevTasks =>
+        prevTasks.map(task =>
+          task._id === taskId
+            ? {
+                ...task,
+                ...updateData,
+                canEdit: newStatus !== 'completed',
+                timeRemaining: newStatus === 'completed' ? 300 : 0 // 5 minutes in seconds
+              }
+            : task
+        )
+      );
+
+      // Make the API call
       const response = await fetch(`/api/staff/tasks/${taskId}`, {
         method: 'PUT',
         headers: {
@@ -290,18 +320,51 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
         body: JSON.stringify(updateData)
       });
       
-      if (response.ok) {
-        // Update local state
-        setTasks(prevTasks =>
-          prevTasks.map(task =>
-            task._id === taskId ? { ...task, status: newStatus, ...handoffData } : task
-          )
-        );
-      } else {
-        console.error("Failed to update task status");
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
+      
+      const result = await response.json();
+      const updatedTask = result.data || result;
+      
+      // Update local state with the server response
+      setTasks(prevTasks =>
+        prevTasks.map(task =>
+          task._id === taskId
+            ? {
+                ...task,
+                ...updatedTask,
+                status: newStatus,
+                ...(handoffData || {}),
+                canEdit: updatedTask.canEdit ?? (newStatus !== 'completed'),
+                timeRemaining: updatedTask.timeRemaining ?? 
+                  (newStatus === 'completed' ? 300 : 0)
+              }
+            : task
+        )
+      );
+      
+      return updatedTask;
     } catch (error) {
       console.error("Error updating task status:", error);
+      
+      // Revert optimistic update on error
+      setTasks(prevTasks => 
+        prevTasks.map(task =>
+          task._id === taskId
+            ? {
+                ...task,
+                status: currentTask.status,
+                completedAt: currentTask.completedAt,
+                canEdit: currentTask.canEdit,
+                timeRemaining: currentTask.timeRemaining
+              }
+            : task
+        )
+      );
+      
+      // Show error message to user
+      alert(`Failed to update task: ${error.message}`);
     }
   };
 
@@ -527,16 +590,55 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
   );
 }
 
+// Format time remaining for completed tasks
+const formatTimeRemaining = (seconds) => {
+  if (!seconds || seconds <= 0) return '0:00';
+  const mins = Math.floor(seconds / 60);
+  const secs = seconds % 60;
+  return `${mins}:${secs.toString().padStart(2, '0')}`;
+};
+
 // Task Card Component
 function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcceptHandoff, onSave }) {
   const [showHandoffModal, setShowHandoffModal] = useState(false);
   const [handoffData, setHandoffData] = useState({ department: "", reason: "" });
+  const [timeRemaining, setTimeRemaining] = useState(task.timeRemaining || 0);
+  const [canEdit, setCanEdit] = useState(task.canEdit !== false);
+
+  // Update time remaining for completed tasks
+  useEffect(() => {
+    let interval;
+    if (task.status === 'completed' && timeRemaining > 0) {
+      interval = setInterval(() => {
+        setTimeRemaining(prev => {
+          const newTime = prev - 1;
+          if (newTime <= 0) {
+            clearInterval(interval);
+            setCanEdit(false);
+            return 0;
+          }
+          return newTime;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [task.status, timeRemaining]);
 
   const handleStatusChange = (newStatus) => {
+    if (!canEdit && task.status === 'completed') {
+      return; // Prevent status change if grace period has expired
+    }
+    
     if (newStatus === "handoff_pending") {
       setShowHandoffModal(true);
     } else {
       onStatusChange(task._id, newStatus);
+      
+      // If marking as completed, start the grace period timer
+      if (newStatus === 'completed') {
+        setTimeRemaining(300); // 5 minutes in seconds
+        setCanEdit(true);
+      }
     }
   };
 
@@ -551,7 +653,19 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center space-x-3 mb-2">
-            {getStatusIcon(task.status)}
+            <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${
+              task.status === 'completed' 
+                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
+                : task.status === 'process' 
+                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' 
+                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
+            }`}>
+              {getStatusIcon(task.status)}
+              <span className="capitalize">{task.status.replace('_', ' ')}</span>
+              {task.status === 'completed' && timeRemaining > 0 && (
+                <span className="ml-1">({formatTimeRemaining(timeRemaining)})</span>
+              )}
+            </div>
             <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">{task.title}</h4>
             <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(task.priority)}`}>
               {task.priority}
@@ -597,12 +711,19 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
           <select
             value={task.status}
             onChange={(e) => handleStatusChange(e.target.value)}
+            disabled={!canEdit && task.status === 'completed'}
             aria-label="Task status"
-            className="px-3 py-1 text-sm rounded-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-slate-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
+            className={`px-3 py-1 text-sm rounded-md border ${
+              !canEdit && task.status === 'completed' 
+                ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed border-gray-200 dark:border-gray-600' 
+                : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400'
+            }`}
           >
             <option value="pending">Pending</option>
-            <option value="process">Process</option>
-            <option value="completed">Completed</option>
+            <option value="process">In Progress</option>
+            <option value="completed" disabled={!canEdit && task.status === 'completed'}>
+              {task.status === 'completed' && !canEdit ? 'Completed (Locked)' : 'Mark as Completed'}
+            </option>
             <option value="handoff_pending">Handoff Pending</option>
           </select>
         </div>
@@ -612,9 +733,14 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
       <div className="mt-4 flex justify-end">
         <button
           onClick={() => onSave && onSave(task)}
-          className="px-4 py-2 text-sm rounded-md bg-amber-400 text-gray-900 font-semibold shadow-sm hover:bg-amber-500 focus:outline-none focus:ring-2 focus:ring-amber-400/70 transition duration-200"
-          title="Save Changes"
-          aria-label="Save task changes"
+          disabled={!canEdit && task.status === 'completed'}
+          className={`px-4 py-2 text-sm rounded-md font-semibold shadow-sm focus:outline-none focus:ring-2 transition duration-200 ${
+            !canEdit && task.status === 'completed'
+              ? 'bg-gray-300 text-gray-500 cursor-not-allowed border-gray-300 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-400'
+              : 'bg-amber-400 text-gray-900 hover:bg-amber-500 focus:ring-amber-400/70'
+          }`}
+          title={!canEdit && task.status === 'completed' ? 'Cannot edit completed task' : 'Save Changes'}
+          aria-label={!canEdit && task.status === 'completed' ? 'Cannot edit completed task' : 'Save task changes'}
         >
           Save Changes
         </button>

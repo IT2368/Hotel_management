@@ -22,8 +22,8 @@ export const staffService = {
   },
 
   // Update task
-  updateTask: async (taskId, updateData) => {
-    const response = await api.put(`/staff/tasks/${taskId}`, updateData);
+  updateTaskStatus: async (taskId, updateData) => {
+    const response = await api.put(`/staff/tasks/${taskId}/status`, updateData);
     return response.data;
   },
 

@@ -28,6 +28,7 @@ const staffTaskSchema = new mongoose.Schema(
     handoffReason: { type: String }, // Reason for handoff
     dueDate: { type: Date },
     completedAt: { type: Date },
+    completedBy: { type: mongoose.Schema.Types.ObjectId, ref: "User" }, // Who completed the task
     location: {
       type: String,
       enum: ["room", "kitchen", "lobby", "gym", "pool", "parking", "other"],

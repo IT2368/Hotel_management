@@ -3,6 +3,7 @@ import StaffTask from "../../models/StaffTask.js";
 import StaffNotification from "../../models/StaffNotification.js";
 import StaffProfile from "../../models/profiles/StaffProfile.js";
 import { User } from "../../models/User.js";
+import mongoose from "mongoose";
 import { formatResponse } from "../../utils/responseFormatter.js";
 import logger from "../../utils/logger.js";
 import NotificationService from "../../services/notification/notificationService.js";
@@ -258,11 +259,53 @@ export const createTask = async (req, res) => {
   }
 };
 
-// Update task
-export const updateTask = async (req, res) => {
+// Check if task can be updated (5-minute grace period for completed tasks)
+const canUpdateTask = (task) => {
+  if (task.status !== 'completed') return true;
+  if (!task.completedAt) return true;
+  
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  return new Date(task.completedAt) > fiveMinutesAgo;
+};
+
+// Calculate time remaining in seconds for the grace period
+const getGracePeriodRemaining = (completedAt) => {
+  if (!completedAt) return 0;
+  const fiveMinutesInMs = 5 * 60 * 1000;
+  const timeElapsed = Date.now() - new Date(completedAt).getTime();
+  return Math.max(0, Math.floor((fiveMinutesInMs - timeElapsed) / 1000));
+};
+
+// Update task status
+export const updateTaskStatus = async (req, res) => {
   try {
     const { taskId } = req.params;
     const updateData = { ...req.body };
+    const now = new Date();
+    let statusChanged = false; // Track if status is being changed
+
+    // Find the task
+    const task = await StaffTask.findById(taskId);
+
+    if (!task) {
+      return res.status(404).json(formatResponse(false, "Task not found"));
+    }
+
+    // Check if trying to modify a completed task after grace period
+    if (task.status === 'completed' && task.completedAt) {
+      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+
+      // If the task was completed more than 5 minutes ago and we're trying to change status
+      if (new Date(task.completedAt) < fiveMinutesAgo &&
+          updateData.status && updateData.status !== 'completed') {
+        return res.status(403).json({
+          success: false,
+          message: 'Cannot update task: 5-minute grace period has expired',
+          canEdit: false,
+          timeRemaining: 0
+        });
+      }
+    }
 
     // Normalize status casing from clients (e.g., "Completed" -> "completed")
     if (typeof updateData.status === "string") {
@@ -279,111 +322,135 @@ export const updateTask = async (req, res) => {
       }
     }
 
-    const task = await StaffTask.findById(taskId);
-    if (!task) {
-      return res.status(404).json(formatResponse(false, "Task not found"));
+    // Check if status is being updated
+    if (updateData.status && updateData.status !== task.status) {
+      statusChanged = true; // Update the existing statusChanged variable
+
+      // If changing to completed, set completedAt timestamp
+      if (updateData.status === 'completed') {
+        updateData.completedAt = now;
+        updateData.completedBy = req.user._id; // Track who completed the task
+      }
+      // If changing from completed, clear completedAt
+      else if (task.status === 'completed') {
+        updateData.completedAt = null;
+        updateData.completedBy = null;
+      }
     }
 
-    // Check if status is being updated
-    const statusChanged = updateData.status && updateData.status !== task.status;
-    const wasCompleted = task.status === "completed";
-    const willBeCompleted = updateData.status === "completed";
-    const isHandoff = updateData.status === "handoff_pending";
-
-    // Update task
+    // Update task with the new data
     Object.assign(task, updateData);
-    
-    // Set completion time if task is being completed
-    if (willBeCompleted && !wasCompleted) {
+
+    // Check if task is being marked as completed
+    const isCompleted = task.status === 'completed';
+
+    // Handle completion logic
+    if (statusChanged && isCompleted) {
       task.completedAt = new Date();
-      task.actualDuration = task.actualDuration || 
-        Math.round((task.completedAt - task.createdAt) / (1000 * 60)); // minutes
+      const duration = Math.round((new Date(task.completedAt) - new Date(task.createdAt)) / (1000 * 60));
+      task.actualDuration = task.actualDuration || (isNaN(duration) ? 0 : duration);
     }
 
     // Handle handoff logic
-    if (isHandoff && updateData.handoffDepartment) {
-      task.handoffDepartment = updateData.handoffDepartment;
-      task.handoffReason = updateData.handoffReason || "Task ready for next department";
-      task.handoffFrom = req.user._id;
-      
+    const isHandoff = task.status === 'handoff_pending' && task.handoffDepartment;
+    if (isHandoff) {
       // Create notification for handoff
       await createTaskNotification(task, "task_handoff");
     }
 
-    await task.save();
+    // Save the updated task
+    const savedTask = await task.save();
+
+    // Prepare the response with grace period info if task is completed
+    const responseData = savedTask.toObject();
+
+    if (responseData.status === 'completed' && responseData.completedAt) {
+      responseData.timeRemaining = getGracePeriodRemaining(responseData.completedAt);
+      responseData.canEdit = canUpdateTask(savedTask);
+
+      // If task has just been completed, notify manager(s)
+      if (statusChanged) {
+        try {
+          // Re-fetch populated task details for richer notification content
+          const populatedForNotify = await StaffTask.findById(savedTask._id)
+            .populate("assignedTo", "name email")
+            .populate("assignedBy", "name email");
+
+          // Determine manager recipients - temporarily disabled
+          let managerIds = [];
+          // TODO: Re-enable manager notifications after fixing User model discriminator issues
+          /*
+          try {
+            const managers = await User.find({
+              role: "manager",
+              isActive: true
+            }).select("_id");
+            managerIds = managers.map(m => m._id);
+          } catch (managerError) {
+            logger.error('Error finding managers for notification:', managerError);
+            // Continue without manager notifications if this fails
+          }
+          */
+
+          // Send notifications to managers (disabled for now)
+          if (managerIds.length > 0) {
+            await NotificationService.sendBulkNotifications({
+              userIds: managerIds,
+              title: 'Task Completed',
+              message: `Task "${populatedForNotify.title}" has been marked as completed by ${populatedForNotify.assignedTo?.name || 'a staff member'}`,
+              type: 'task_completed',
+              channel: "inApp",
+              priority: populatedForNotify.isUrgent ? "high" : "medium",
+              sentBy: req.user._id
+            });
+          }
+
+          // Create a staff notification of type task_completed for historical record
+          await createTaskNotification(savedTask, "task_completed");
+
+        } catch (notifyError) {
+          logger.error('Error sending completion notifications:', notifyError);
+          // Don't fail the request if notifications fail
+        }
+      }
+    } else {
+      responseData.timeRemaining = 0;
+      responseData.canEdit = true;
+    }
 
     // Create notifications for status changes
     if (statusChanged) {
-      await createTaskNotification(task, "task_updated");
+      await createTaskNotification(savedTask, "task_updated");
     }
 
-    // If task has just been completed, notify manager(s)
-    if (willBeCompleted && !wasCompleted) {
-      try {
-        // Re-fetch populated task details for richer notification content
-        const populatedForNotify = await StaffTask.findById(task._id)
-          .populate("assignedTo", "name email role")
-          .populate("assignedBy", "name email role");
-
-        // Determine manager recipients
-        let managerIds = [];
-        if (populatedForNotify?.assignedBy) {
-          const assigner = populatedForNotify.assignedBy;
-          if (assigner.role === "manager") {
-            managerIds = [assigner._id];
-          }
-        }
-
-        if (managerIds.length === 0) {
-          const managers = await User.find({ role: "manager", isApproved: true }).select("_id");
-          managerIds = managers.map((m) => m._id);
-        }
-
-        // Build notification message
-        const title = `Task Completed: ${populatedForNotify.title}`;
-        const completedBy = populatedForNotify.assignedTo?.name || "Staff Member";
-        const message = `"${populatedForNotify.title}" has been marked as completed by ${completedBy}.`;
-
-        // Send notifications to managers (in-app)
-        await Promise.all(
-          managerIds.map((managerId) =>
-            NotificationService.sendNotification({
-              userId: managerId,
-              userType: "manager",
-              type: "staff_alert", // Using existing manager-friendly type
-              title,
-              message,
-              channel: "inApp",
-              priority: populatedForNotify.isUrgent ? "high" : "medium",
-              metadata: {
-                taskId: populatedForNotify._id.toString(),
-                department: populatedForNotify.department,
-                location: populatedForNotify.location,
-                roomNumber: populatedForNotify.roomNumber,
-                completedAt: new Date().toISOString(),
-              },
-              actionUrl: `/staff/tasks/${populatedForNotify._id}`,
-            })
-          )
-        );
-
-        // Also create a staff notification of type task_completed for historical record
-        await createTaskNotification(task, "task_completed");
-      } catch (notifyErr) {
-        logger.error("Error sending manager completion notification:", notifyErr);
-      }
-    }
-
-    const updatedTask = await StaffTask.findById(taskId)
+    // Populate the response with user details
+    const populatedTask = await StaffTask.findById(savedTask._id)
       .populate("assignedTo", "name email")
       .populate("assignedBy", "name email")
       .populate("handoffTo", "name email")
       .populate("handoffFrom", "name email");
 
-    res.json(formatResponse(true, "Task updated successfully", updatedTask));
+    responseData.assignedTo = populatedTask.assignedTo;
+    responseData.assignedBy = populatedTask.assignedBy;
+    responseData.handoffTo = populatedTask.handoffTo;
+    responseData.handoffFrom = populatedTask.handoffFrom;
+
+    return res.json({
+      success: true,
+      message: 'Task updated successfully',
+      data: responseData,
+      canEdit: responseData.status !== 'completed' || canUpdateTask(savedTask),
+      timeRemaining: responseData.status === 'completed' ? getGracePeriodRemaining(responseData.completedAt) : 0
+    });
   } catch (error) {
     logger.error("Error updating task:", error);
-    res.status(500).json(formatResponse(false, "Failed to update task", null, error.message));
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update task',
+      error: error.message,
+      canEdit: false,
+      timeRemaining: 0
+    });
   }
 };
 
