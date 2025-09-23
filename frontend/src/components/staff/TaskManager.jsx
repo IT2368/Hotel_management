@@ -104,6 +104,9 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
           location: "kitchen",
           estimatedDuration: 60,
           isUrgent: false,
+          completedAt: new Date(Date.now() - 2 * 60 * 1000).toISOString(), // 2 minutes ago
+          timeRemaining: 780, // 13 minutes remaining (15 - 2)
+          canEdit: true,
         },
         {
           title: "Clean and sanitize prep area",
@@ -304,7 +307,7 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
                 ...task,
                 ...updateData,
                 canEdit: newStatus !== 'completed',
-                timeRemaining: newStatus === 'completed' ? 300 : 0 // 5 minutes in seconds
+                timeRemaining: newStatus === 'completed' ? 900 : 0 // 15 minutes in seconds
               }
             : task
         )
@@ -337,8 +340,8 @@ export default function TaskManager({ department, user, viewMode = "mine" }) {
                 status: newStatus,
                 ...(handoffData || {}),
                 canEdit: updatedTask.canEdit ?? (newStatus !== 'completed'),
-                timeRemaining: updatedTask.timeRemaining ?? 
-                  (newStatus === 'completed' ? 300 : 0)
+                timeRemaining: updatedTask.timeRemaining ??
+                  (newStatus === 'completed' ? 900 : 0)
               }
             : task
         )
@@ -636,7 +639,7 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
       
       // If marking as completed, start the grace period timer
       if (newStatus === 'completed') {
-        setTimeRemaining(300); // 5 minutes in seconds
+        setTimeRemaining(900); // 15 minutes in seconds
         setCanEdit(true);
       }
     }
@@ -653,18 +656,9 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
       <div className="flex items-start justify-between">
         <div className="flex-1">
           <div className="flex items-center space-x-3 mb-2">
-            <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium ${
-              task.status === 'completed' 
-                ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' 
-                : task.status === 'process' 
-                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300' 
-                  : 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300'
-            }`}>
+            <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs font-medium bg-black text-white`}>
               {getStatusIcon(task.status)}
               <span className="capitalize">{task.status.replace('_', ' ')}</span>
-              {task.status === 'completed' && timeRemaining > 0 && (
-                <span className="ml-1">({formatTimeRemaining(timeRemaining)})</span>
-              )}
             </div>
             <h4 className="text-lg font-medium text-gray-900 dark:text-gray-100">{task.title}</h4>
             <span className={`px-2 py-1 text-xs font-medium rounded-full border ${getPriorityColor(task.priority)}`}>
@@ -698,7 +692,7 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
           </div>
         </div>
 
-        <div className="flex items-center space-x-2">
+        <div className="flex flex-col items-end space-y-2">
           {task.status === "handoff_pending" && task.handoffDepartment && (
             <button
               onClick={() => onAcceptHandoff(task._id)}
@@ -707,17 +701,13 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
               Accept Handoff
             </button>
           )}
-          
+
           <select
             value={task.status}
             onChange={(e) => handleStatusChange(e.target.value)}
             disabled={!canEdit && task.status === 'completed'}
             aria-label="Task status"
-            className={`px-3 py-1 text-sm rounded-md border ${
-              !canEdit && task.status === 'completed' 
-                ? 'bg-gray-100 dark:bg-gray-700 text-gray-500 dark:text-gray-400 cursor-not-allowed border-gray-200 dark:border-gray-600' 
-                : 'bg-white dark:bg-slate-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400'
-            }`}
+            className="px-3 py-1 text-sm rounded-md border bg-white dark:bg-slate-800 text-gray-900 dark:text-white border-gray-300 dark:border-gray-600 focus:ring-2 focus:ring-indigo-400 focus:border-indigo-400"
           >
             <option value="pending">Pending</option>
             <option value="process">In Progress</option>
@@ -725,7 +715,16 @@ function TaskCard({ task, onStatusChange, getStatusIcon, getPriorityColor, onAcc
               {task.status === 'completed' && !canEdit ? 'Completed (Locked)' : 'Mark as Completed'}
             </option>
             <option value="handoff_pending">Handoff Pending</option>
+            <option value="handoff_accepted">Handoff Accepted</option>
           </select>
+
+          {/* Timer display below status button */}
+          {task.status === 'completed' && timeRemaining > 0 && (
+            <div className="flex items-center space-x-1 text-xs text-gray-600 dark:text-gray-400">
+              <Clock className="h-3 w-3" />
+              <span>Time remaining: {formatTimeRemaining(timeRemaining)}</span>
+            </div>
+          )}
         </div>
       </div>
 

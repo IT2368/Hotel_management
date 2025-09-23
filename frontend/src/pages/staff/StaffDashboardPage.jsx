@@ -257,7 +257,7 @@ export default function StaffDashboardPage() {
           backgroundPosition: 'center',
           backgroundRepeat: 'no-repeat',
           backgroundAttachment: 'fixed',
-          border: '4px solid red' // Temporary border to make the background div visible
+          border: '1px solid red' // Temporary border to make the background div visible
         }}
       >
         <div className="absolute inset-0 bg-black/50"></div>
@@ -270,8 +270,37 @@ export default function StaffDashboardPage() {
         {/* Gradient overlay for better text readability */}
         <div className="absolute inset-0 bg-gradient-to-b from-black/30 via-black/20 to-black/40"></div>
         <div className="absolute inset-0 bg-white/10 dark:bg-gray-900/30 backdrop-blur-[1px]"></div>
+
+        {/* Top Right Corner Icons */}
+        <div className="absolute top-4 right-4 z-30 flex items-center space-x-3">
+          {/* Bell Icon */}
+          <div className="relative group">
+            <button className="p-3 bg-white/10 hover:bg-white/20 backdrop-blur-sm rounded-xl border border-white/20 hover:border-white/30 transition-all duration-300 transform hover:scale-110">
+              <Bell />
+            </button>
+            {urgentAlerts.length > 0 && (
+              <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse shadow-lg">
+                {urgentAlerts.length}
+              </span>
+            )}
+          </div>
+
+          {/* Logout Button */}
+          <button
+            onClick={logout}
+            className="group relative px-6 py-3 bg-gradient-to-r from-red-500 via-red-600 to-red-700 hover:from-red-600 hover:via-red-700 hover:to-red-800 text-white rounded-2xl shadow-2xl hover:shadow-red-500/25 transform hover:scale-110 hover:-translate-y-1 transition-all duration-500 font-bold overflow-hidden border border-red-400/30 backdrop-blur-sm"
+          >
+            <span className="absolute inset-0 bg-gradient-to-r from-red-600 via-red-700 to-red-800 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-2xl"></span>
+            <span className="absolute inset-0 bg-white/10 opacity-0 group-hover:opacity-20 transition-opacity duration-300 rounded-2xl animate-pulse"></span>
+            <span className="relative flex items-center space-x-2">
+              <span className="text-lg animate-bounce">🚪</span>
+              <span>Logout</span>
+            </span>
+          </button>
+        </div>
+
         <div className="relative z-20 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-full flex flex-col justify-center">
-          <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-5">
             <div className={`p-4 rounded-2xl bg-white/20 dark:bg-gray-800/30 backdrop-blur-sm border border-white/30 shadow-2xl` }>
               <span className="text-4xl filter drop-shadow-lg">{currentDept.icon}</span>
             </div>
@@ -284,32 +313,12 @@ export default function StaffDashboardPage() {
               </p>
             </div>
           </div>
-          <div className="flex items-center space-x-4">
-            <div className="relative">
-              <Bell />
-              {urgentAlerts.length > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full h-5 w-5 flex items-center justify-center animate-pulse">
-                  {urgentAlerts.length}
-                </span>
-              )}
-            </div>
-            <button
-              onClick={logout}
-              className="group relative px-6 py-3 bg-gradient-to-r from-red-500 to-red-600 text-white rounded-xl shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-300 font-semibold overflow-hidden"
-            >
-              <span className="absolute inset-0 bg-gradient-to-r from-red-600 to-red-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></span>
-              <span className="relative flex items-center space-x-2">
-                <span>🔐</span>
-                <span>Logout</span>
-              </span>
-            </button>
-          </div>
         </div>
       </header>
 
       <div className="flex">
         {/* Sidebar */}
-        <aside className="w-64 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-r border-white/30 dark:border-gray-800/50 h-screen px-6 py-8 shadow-xl">
+        <aside className="w-64 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-r border-white/30 dark:border-gray-800/50 h-screen px-6 py-6 shadow-xl overflow-y-auto">
           <div className="mb-8">
             <div className="flex items-center space-x-3 mb-4">
               <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900 rounded-full flex items-center justify-center">
@@ -352,8 +361,8 @@ export default function StaffDashboardPage() {
         </aside>
 
         {/* Main Content */}
-        <main className="container mx-auto px-4 py-8 relative z-10">
-          <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 dark:border-gray-800/50 p-6">
+        <main className="flex-1 h-screen container mx-auto px-4 py-8 relative z-10 overflow-y-auto">
+          <div className="bg-white/90 dark:bg-gray-900/90 backdrop-blur-sm rounded-lg shadow-xl border border-white/20 dark:border-gray-800/50 p-6 min-h-[calc(100vh-12rem)]">
             {activeTab === "overview" && <OverviewTab user={user} department={department} setActiveTab={setActiveTab} />}
             {activeTab === "tasks" && <TasksTab user={user} department={department} />}
             {activeTab === "contact" && <ContactManagerTab user={user} department={department} />}
@@ -451,7 +460,7 @@ function OverviewTab({ user, department, setActiveTab }) {
       </div>
 
       {/* Stats Grid - dark rounded cards layout */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         {stats.map((stat, index) => (
           <div
             key={stat.title}
@@ -480,7 +489,7 @@ function OverviewTab({ user, department, setActiveTab }) {
       </div>
 
       {/* Enhanced Quick Actions */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="group relative">
           <div className="absolute -inset-1 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 rounded-3xl blur opacity-20 group-hover:opacity-40 transition duration-1000"></div>
           <div className="relative bg-white/90 dark:bg-gray-800/90 backdrop-blur-xl rounded-2xl shadow-2xl border border-white/40 dark:border-gray-700/40 overflow-hidden">
@@ -732,7 +741,7 @@ function TasksTab({ user, department }) {
       </div>
 
       {/* Task Summary Cards - clean style */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {taskViews.map((view, index) => (
           <div
             key={view.id}
@@ -771,7 +780,7 @@ function TasksTab({ user, department }) {
 
       {/* Task List - clean style */}
       <div className="relative">
-        <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden">
+        <div className="relative bg-white dark:bg-gray-800 rounded-2xl shadow border border-gray-200 dark:border-gray-700 overflow-hidden min-h-[400px]">
           <div className="relative p-6 border-b border-gray-100 dark:border-gray-700">
             <div className="flex items-center justify-between">
               <div className="flex items-center space-x-4">
@@ -1338,6 +1347,7 @@ function TaskCard({ task, onStatusChange, index = 0 }) {
   // Initialize state with task status or default to 'pending'
   const [selectedStatus, setSelectedStatus] = useState(task?.status || 'pending');
   const [isUpdating, setIsUpdating] = useState(false);
+  const [timeRemaining, setTimeRemaining] = useState(task?.timeRemaining || 0);
 
   // Update selectedStatus when task prop changes
   useEffect(() => {
@@ -1345,6 +1355,24 @@ function TaskCard({ task, onStatusChange, index = 0 }) {
       setSelectedStatus(task.status);
     }
   }, [task?.status]);
+
+  // Update time remaining for completed tasks
+  useEffect(() => {
+    let interval;
+    if (selectedStatus === 'completed' && timeRemaining > 0) {
+      interval = setInterval(() => {
+        setTimeRemaining(prev => {
+          const newTime = prev - 1;
+          if (newTime <= 0) {
+            clearInterval(interval);
+            return 0;
+          }
+          return newTime;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [selectedStatus, timeRemaining]);
 
   const getStatusIcon = (status) => {
     switch (status) {
@@ -1442,7 +1470,23 @@ function TaskCard({ task, onStatusChange, index = 0 }) {
         onStatusChange(task._id, newStatus);
       }
 
-      // Send to backend
+      // If marking as completed, start the grace period timer
+      if (newStatus === 'completed') {
+        setTimeRemaining(900); // 15 minutes in seconds
+      }
+
+      // Check if this is a mock task (timestamp-based ID) - skip backend call for demo
+      const isMockTask = /^\d{13}$/.test(task._id); // 13-digit timestamp ID
+      if (isMockTask) {
+        console.log('Mock task detected, skipping backend call for demo purposes');
+        // Simulate successful response for mock tasks
+        setTimeout(() => {
+          console.log('Mock task status updated successfully');
+        }, 500);
+        return true;
+      }
+
+      // Send to backend for real tasks
       console.log('Sending status update to backend', {
         taskId: task._id,
         newStatus,
@@ -1548,49 +1592,59 @@ function TaskCard({ task, onStatusChange, index = 0 }) {
           </div>
         </div>
 
-        <div className="flex items-start space-x-4">
-          <div className="relative group/select">
-            <div className="absolute -inset-1 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-2xl blur opacity-0 group-hover/select:opacity-30 transition-opacity duration-300"></div>
-            <select
-              value={selectedStatus}
-              onChange={(e) => setSelectedStatus(e.target.value)}
-              className="relative appearance-none px-5 py-3 pr-10 text-sm font-bold border-2 border-transparent bg-gradient-to-r from-white/90 to-gray-50/90 dark:from-gray-800/90 dark:to-gray-900/90 backdrop-blur-sm rounded-2xl text-gray-900 dark:text-gray-100 focus:ring-4 focus:ring-indigo-400/20 focus:border-indigo-400 hover:border-indigo-300 hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105"
-            >
-              <option value="pending">⏳ Pending</option>
-              <option value="process">🔄 In Progress</option>
-              <option value="completed">✅ Completed</option>
-            </select>
-            <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
-              <div className="w-6 h-6 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full flex items-center justify-center">
-                <span className="text-white text-xs">▼</span>
+        <div className="flex flex-col items-end space-y-2">
+          <div className="flex items-start space-x-4">
+            <div className="relative group/select">
+              <div className="absolute -inset-1 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-2xl blur opacity-0 group-hover/select:opacity-30 transition-opacity duration-300"></div>
+              <select
+                value={selectedStatus}
+                onChange={(e) => setSelectedStatus(e.target.value)}
+                className="relative appearance-none px-5 py-3 pr-10 text-sm font-bold border-2 border-transparent bg-gradient-to-r from-white/90 to-gray-50/90 dark:from-gray-800/90 dark:to-gray-900/90 backdrop-blur-sm rounded-2xl text-gray-900 dark:text-gray-100 focus:ring-4 focus:ring-indigo-400/20 focus:border-indigo-400 hover:border-indigo-300 hover:shadow-xl transition-all duration-300 cursor-pointer transform hover:scale-105"
+              >
+               <option value="pending" style={{color: 'black'}}>⏳ Pending</option>
+              <option value="process" style={{color: 'black'}}>🔄 In Progress</option>
+              <option value="completed" style={{color: 'black'}}>✅ Completed</option>
+              </select>
+              <div className="absolute inset-y-0 right-0 flex items-center pr-4 pointer-events-none">
+                <div className="w-6 h-6 bg-gradient-to-r from-indigo-400 to-purple-400 rounded-full flex items-center justify-center">
+                  <span className="text-white text-xs">▼</span>
+                </div>
               </div>
             </div>
+
+            <button
+              onClick={() => handleStatusChange(selectedStatus)}
+              disabled={selectedStatus === task.status || isUpdating}
+              className={`group relative px-4 py-2 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300 font-semibold ${
+                selectedStatus === task.status || isUpdating
+                  ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
+                  : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-xl'
+              }`}
+            >
+              <span className="absolute inset-0 bg-gradient-to-r from-green-600 to-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></span>
+              <span className="relative flex items-center space-x-2">
+                {isUpdating ? (
+                  <>
+                    <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                    <span>Saving...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>💾</span>
+                    <span>Save</span>
+                  </>
+                )}
+              </span>
+            </button>
           </div>
 
-          <button
-            onClick={() => handleStatusChange(selectedStatus)}
-            disabled={selectedStatus === task.status || isUpdating}
-            className={`group relative px-4 py-2 rounded-xl shadow-lg transform hover:scale-105 transition-all duration-300 font-semibold ${
-              selectedStatus === task.status || isUpdating
-                ? 'bg-gray-400 text-gray-600 cursor-not-allowed'
-                : 'bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:shadow-xl'
-            }`}
-          >
-            <span className="absolute inset-0 bg-gradient-to-r from-green-600 to-emerald-700 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></span>
-            <span className="relative flex items-center space-x-2">
-              {isUpdating ? (
-                <>
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                  <span>Saving...</span>
-                </>
-              ) : (
-                <>
-                  <span>💾</span>
-                  <span>Save</span>
-                </>
-              )}
-            </span>
-          </button>
+          {/* Timer display below status button */}
+          {selectedStatus === 'completed' && timeRemaining > 0 && (
+            <div className="flex items-center space-x-1 text-xs text-orange-600 dark:text-orange-400 font-semibold">
+              <span className="text-lg">⏰</span>
+              <span>Time remaining: {Math.floor(timeRemaining / 60)}:{(timeRemaining % 60).toString().padStart(2, '0')}</span>
+            </div>
+          )}
         </div>
       </div>
     </div>

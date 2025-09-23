@@ -259,21 +259,21 @@ export const createTask = async (req, res) => {
   }
 };
 
-// Check if task can be updated (5-minute grace period for completed tasks)
+// Check if task can be updated (15-minute grace period for completed tasks)
 const canUpdateTask = (task) => {
   if (task.status !== 'completed') return true;
   if (!task.completedAt) return true;
-  
-  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
-  return new Date(task.completedAt) > fiveMinutesAgo;
+
+  const fifteenMinutesAgo = new Date(Date.now() - 15 * 60 * 1000);
+  return new Date(task.completedAt) > fifteenMinutesAgo;
 };
 
 // Calculate time remaining in seconds for the grace period
 const getGracePeriodRemaining = (completedAt) => {
   if (!completedAt) return 0;
-  const fiveMinutesInMs = 5 * 60 * 1000;
+  const fifteenMinutesInMs = 15 * 60 * 1000;
   const timeElapsed = Date.now() - new Date(completedAt).getTime();
-  return Math.max(0, Math.floor((fiveMinutesInMs - timeElapsed) / 1000));
+  return Math.max(0, Math.floor((fifteenMinutesInMs - timeElapsed) / 1000));
 };
 
 // Update task status
@@ -293,14 +293,14 @@ export const updateTaskStatus = async (req, res) => {
 
     // Check if trying to modify a completed task after grace period
     if (task.status === 'completed' && task.completedAt) {
-      const fiveMinutesAgo = new Date(now.getTime() - 5 * 60 * 1000);
+      const fifteenMinutesAgo = new Date(now.getTime() - 15 * 60 * 1000);
 
-      // If the task was completed more than 5 minutes ago and we're trying to change status
-      if (new Date(task.completedAt) < fiveMinutesAgo &&
+      // If the task was completed more than 15 minutes ago and we're trying to change status
+      if (new Date(task.completedAt) < fifteenMinutesAgo &&
           updateData.status && updateData.status !== 'completed') {
         return res.status(403).json({
           success: false,
-          message: 'Cannot update task: 5-minute grace period has expired',
+          message: 'Cannot update task: 15-minute grace period has expired',
           canEdit: false,
           timeRemaining: 0
         });
